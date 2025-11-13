@@ -1,7 +1,7 @@
 {
   "name": "seven365-zyprinter",
   "version": "0.0.1",
-  "description": "plugin for integration of zyprinter",
+  "description": "Capacitor plugin for Zywell/Zyprint thermal printer integration with Bluetooth and WiFi support",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
@@ -27,7 +27,14 @@
   "keywords": [
     "capacitor",
     "plugin",
-    "native"
+    "native",
+    "printer",
+    "zyprinter",
+    "zywell",
+    "pos",
+    "receipt",
+    "bluetooth",
+    "wifi"
   ],
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
@@ -39,7 +46,7 @@
     "eslint": "eslint . --ext ts",
     "prettier": "prettier \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
-    "docgen": "docgen --api ExamplePlugin --output-readme README.md --output-json dist/docs.json",
+    "docgen": "docgen --api ZyprintPlugin --output-readme README.md --output-json dist/docs.json",
     "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",

@@ -1,10 +1,40 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { ExamplePlugin } from './definitions';
+import type { ZyprintPlugin } from './definitions';
 
-export class ExampleWeb extends WebPlugin implements ExamplePlugin {
+export class ZyprintWeb extends WebPlugin implements ZyprintPlugin {
   async echo(options: { value: string }): Promise<{ value: string }> {
     console.log('ECHO', options);
     return options;
+  }
+
+  async discoverPrinters(): Promise<{ printers: Array<{ identifier: string; model: string; status: string }> }> {
+    console.warn('Zyprint discovery is not available on web platform');
+    return { printers: [] };
+  }
+
+  async connectToPrinter(_options: { identifier: string }): Promise<{ connected: boolean }> {
+    console.warn('Zyprint connection is not available on web platform');
+    return { connected: false };
+  }
+
+  async disconnectFromPrinter(_options: { identifier: string }): Promise<{ disconnected: boolean }> {
+    console.warn('Zyprint disconnection is not available on web platform');
+    return { disconnected: false };
+  }
+
+  async printText(_options: { text: string; identifier: string }): Promise<{ success: boolean }> {
+    console.warn('Zyprint printing is not available on web platform');
+    return { success: false };
+  }
+
+  async printReceipt(_options: { template: Record<string, any>; identifier: string }): Promise<{ success: boolean }> {
+    console.warn('Zyprint receipt printing is not available on web platform');
+    return { success: false };
+  }
+
+  async getPrinterStatus(_options: { identifier: string }): Promise<{ status: string; paperStatus: string; connected: boolean }> {
+    console.warn('Zyprint status check is not available on web platform');
+    return { status: 'unknown', paperStatus: 'unknown', connected: false };
   }
 }
