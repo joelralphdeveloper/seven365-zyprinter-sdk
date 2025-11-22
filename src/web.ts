@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { ZyprintPlugin } from './definitions';
+import type { ZyprintPlugin, ZyPrinter } from './definitions';
 
 export class ZyprintWeb extends WebPlugin implements ZyprintPlugin {
   async echo(options: { value: string }): Promise<{ value: string }> {
@@ -8,8 +8,18 @@ export class ZyprintWeb extends WebPlugin implements ZyprintPlugin {
     return options;
   }
 
-  async discoverPrinters(): Promise<{ printers: Array<{ identifier: string; model: string; status: string }> }> {
+  async discoverPrinters(): Promise<{ printers: ZyPrinter[] }> {
     console.warn('Zyprint discovery is not available on web platform');
+    return { printers: [] };
+  }
+
+  async discoverBluetoothPrinters(): Promise<{ printers: ZyPrinter[] }> {
+    console.warn('Zyprint Bluetooth discovery is not available on web platform');
+    return { printers: [] };
+  }
+
+  async discoverWiFiPrinters(_options?: { networkRange?: string }): Promise<{ printers: ZyPrinter[] }> {
+    console.warn('Zyprint WiFi discovery is not available on web platform');
     return { printers: [] };
   }
 

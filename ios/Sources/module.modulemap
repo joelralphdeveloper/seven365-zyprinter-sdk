@@ -1,0 +1,12 @@
+module Seven365Zyprinter {  
+    header "sources/POSSDK.h"
+    header "sources/POSBLEManager.h"
+    header "sources/POSWIFIManager.h"
+    header "sources/PosCommand.h"
+    header "sources/TscCommand.h"
+    header "sources/ImageTranster.h"
+    
+    export *
+    module * { export * }
+}
+
