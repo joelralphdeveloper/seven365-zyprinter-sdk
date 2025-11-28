@@ -7,6 +7,8 @@
 
 import Foundation
 import CoreBluetooth
+import Network
+
 
 @objc public class ZywellSDK: NSObject {
     
@@ -17,6 +19,13 @@ import CoreBluetooth
     
     public override init() {
         super.init()
+    }
+    
+    deinit {
+        bleManager?.delegate = nil
+        for (_, manager) in wifiManagers {
+            manager.delegate = nil
+        }
     }
     
     // MARK: - Echo Test
@@ -32,14 +41,14 @@ import CoreBluetooth
         var allPrinters: [[String: Any]] = []
         let group = DispatchGroup()
         
-        // Discover Bluetooth
-        group.enter()
-        discoverBluetoothPrinters { btPrinters, error in
-            if error == nil {
-                allPrinters.append(contentsOf: btPrinters)
-            }
-            group.leave()
-        }
+        // Bluetooth discovery disabled
+        // group.enter()
+        // discoverBluetoothPrinters { btPrinters, error in
+        //     if error == nil {
+        //         allPrinters.append(contentsOf: btPrinters)
+        //     }
+        //     group.leave()
+        // }
         
         // Discover WiFi
         group.enter()
@@ -56,49 +65,117 @@ import CoreBluetooth
     }
     
     @objc public func discoverBluetoothPrinters(completion: @escaping ([[String: Any]], String?) -> Void) {
-        bleManager = POSBLEManager.sharedInstance()
-        bleManager?.delegate = self
-        
-        // Store completion for delegate callback
-        self.discoveryCompletion = completion
-        
-        // Start scanning
-        bleManager?.poSstartScan()
-        
-        // Auto-stop after 5 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-            self?.bleManager?.poSstopScan()
-            
-            guard let printers = self?.discoveredPeripherals,
-                  let rssis = self?.peripheralRSSIs else {
-                completion([], nil)
-                return
-            }
-            
-            var printerList: [[String: Any]] = []
-            for (index, peripheral) in printers.enumerated() {
-                let rssi = rssis.count > index ? rssis[index].intValue : 0
-                
-                printerList.append([
-                    "identifier": peripheral.identifier.uuidString,
-                    "model": peripheral.name ?? "Unknown Printer",
-                    "status": "ready",
-                    "connectionType": "bluetooth",
-                    "rssi": rssi
-                ])
-            }
-            
-            completion(printerList, nil)
-        }
+        // Bluetooth discovery disabled
+        completion([], nil)
     }
     
     @objc public func discoverWiFiPrinters(networkRange: String?, completion: @escaping ([[String: Any]], String?) -> Void) {
-        // For WiFi discovery, we would need to implement network scanning
-        // This is a placeholder - WiFi printers typically need manual IP entry
-        // or use mDNS/Bonjour discovery which requires additional implementation
+        guard let ipAddress = getWiFiAddress() else {
+            completion([], "Could not determine device IP address")
+            return
+        }
         
-        // Return empty for now - users will connect via IP address
-        completion([], nil)
+        let prefix = ipAddress.components(separatedBy: ".").dropLast().joined(separator: ".") + "."
+        scanSubnet(prefix: prefix, completion: completion)
+    }
+    
+    private func scanSubnet(prefix: String, completion: @escaping ([[String: Any]], String?) -> Void) {
+        let group = DispatchGroup()
+        let queue = DispatchQueue(label: "com.seven365.printer.scan", attributes: .concurrent)
+        var foundPrinters: [[String: Any]] = []
+        let lock = NSLock()
+        
+        // Scan range 1-254
+        for i in 1...254 {
+            let host = "\(prefix)\(i)"
+            group.enter()
+            
+            queue.async {
+                self.checkPort(host: host, port: 9100, timeout: 0.5) { isOpen in
+                    if isOpen {
+                        lock.lock()
+                        foundPrinters.append([
+                            "identifier": host,
+                            "model": "WiFi Printer (\(host))",
+                            "status": "ready",
+                            "connectionType": "wifi",
+                            "ip": host
+                        ])
+                        lock.unlock()
+                    }
+                    group.leave()
+                }
+            }
+        }
+        
+        group.notify(queue: .main) {
+            completion(foundPrinters, nil)
+        }
+    }
+    
+    private func checkPort(host: String, port: UInt16, timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
+        let hostEndpoint = NWEndpoint.Host(host)
+        let portEndpoint = NWEndpoint.Port(integerLiteral: port)
+        
+        let connection = NWConnection(host: hostEndpoint, port: portEndpoint, using: .tcp)
+        
+        var hasCompleted = false
+        
+        connection.stateUpdateHandler = { state in
+            if hasCompleted { return }
+            
+            switch state {
+            case .ready:
+                hasCompleted = true
+                connection.cancel()
+                completion(true)
+            case .failed(_), .cancelled:
+                hasCompleted = true
+                connection.cancel()
+                completion(false)
+            default:
+                break
+            }
+        }
+        
+        connection.start(queue: .global())
+        
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+            if !hasCompleted {
+                hasCompleted = true
+                connection.cancel()
+                completion(false)
+            }
+        }
+    }
+    
+    // Helper to get IP address
+    private func getWiFiAddress() -> String? {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        
+        if getifaddrs(&ifaddr) == 0 {
+            var ptr = ifaddr
+            while ptr != nil {
+                defer { ptr = ptr?.pointee.ifa_next }
+                
+                guard let interface = ptr?.pointee else { continue }
+                let addrFamily = interface.ifa_addr.pointee.sa_family
+                
+                if addrFamily == UInt8(AF_INET) { // IPv4 only
+                    let name = String(cString: interface.ifa_name)
+                    if name == "en0" { // WiFi interface
+                        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                        getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
+                                    &hostname, socklen_t(hostname.count),
+                                    nil, socklen_t(0), NI_NUMERICHOST)
+                        address = String(cString: hostname)
+                    }
+                }
+            }
+            freeifaddrs(ifaddr)
+        }
+        return address
     }
     
     // MARK: - Connection Management
@@ -144,7 +221,9 @@ import CoreBluetooth
         self.connectionCompletion = completion
         
         wifiManager.posConnect(withHost: ipAddress, port: port) { [weak self] isConnected in
-            completion(isConnected, isConnected ? nil : "Connection failed")
+            DispatchQueue.main.async {
+                completion(isConnected, isConnected ? nil : "Connection failed")
+            }
         }
     }
     
@@ -305,15 +384,19 @@ extension ZywellSDK: POSBLEManagerDelegate {
         self.peripheralRSSIs = rssis
     }
     
-    public func poSdidConnect(_ peripheral: CBPeripheral!) {
-        connectionCompletion?(true, nil)
-        connectionCompletion = nil
+    public func poSdidConnectPeripheral(_ peripheral: CBPeripheral!) {
+        DispatchQueue.main.async { [weak self] in
+            self?.connectionCompletion?(true, nil)
+            self?.connectionCompletion = nil
+        }
     }
     
-    public func poSdidFail(toConnect peripheral: CBPeripheral!, error: Error!) {
+    public func poSdidFailToConnectPeripheral(_ peripheral: CBPeripheral!, error: Error!) {
         let errorMsg = error?.localizedDescription ?? "Connection failed"
-        connectionCompletion?(false, errorMsg)
-        connectionCompletion = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.connectionCompletion?(false, errorMsg)
+            self?.connectionCompletion = nil
+        }
     }
     
     public func poSdidDisconnectPeripheral(_ peripheral: CBPeripheral!, isAutoDisconnect: Bool) {
@@ -321,12 +404,14 @@ extension ZywellSDK: POSBLEManagerDelegate {
     }
     
     public func poSdidWriteValue(for character: CBCharacteristic!, error: Error!) {
-        if let error = error {
-            printCompletion?(false, error.localizedDescription)
-        } else {
-            printCompletion?(true, nil)
+        DispatchQueue.main.async { [weak self] in
+            if let error = error {
+                self?.printCompletion?(false, error.localizedDescription)
+            } else {
+                self?.printCompletion?(true, nil)
+            }
+            self?.printCompletion = nil
         }
-        printCompletion = nil
     }
 }
 
@@ -335,8 +420,10 @@ extension ZywellSDK: POSBLEManagerDelegate {
 extension ZywellSDK: POSWIFIManagerDelegate {
     
     public func poswifiManager(_ manager: POSWIFIManager!, didConnectedToHost host: String!, port: UInt16) {
-        connectionCompletion?(true, nil)
-        connectionCompletion = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.connectionCompletion?(true, nil)
+            self?.connectionCompletion = nil
+        }
     }
     
     public func poswifiManager(_ manager: POSWIFIManager, willDisconnectWithError error: Error?) {
@@ -344,11 +431,13 @@ extension ZywellSDK: POSWIFIManagerDelegate {
     }
     
     public func poswifiManager(_ manager: POSWIFIManager!, didWriteDataWithTag tag: Int) {
-        printCompletion?(true, nil)
-        printCompletion = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.printCompletion?(true, nil)
+            self?.printCompletion = nil
+        }
     }
     
-    public func poswifiManager(_ manager: POSWIFIManager, didRead data: Data, tag: Int) {
+    public func poswifiManager(_ manager: POSWIFIManager, didReadData data: Data, tag: Int) {
         // Handle data reading if needed
     }
     
