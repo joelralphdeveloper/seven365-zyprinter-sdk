@@ -1,11 +1,15 @@
+require 'json'
+
+package = JSON.parse(File.read(File.join(__dir__, 'package.json')))
+
 Pod::Spec.new do |s|
   s.name = 'Seven365Zyprinter'
-  s.version = '0.0.1'
-  s.summary = 'Capacitor plugin for Zywell/Zyprint thermal printer integration'
-  s.license = 'MIT'
-  s.homepage = 'https://github.com/Seven365-Pte-Ltd/plateful-pos-mobile'
-  s.author = 'joelralph'
-  s.source = { :git => 'https://github.com/Seven365-Pte-Ltd/plateful-pos-mobile', :tag => s.version.to_s }
+  s.version = package['version']
+  s.summary = package['description']
+  s.license = package['license']
+  s.homepage = package['repository']['url']
+  s.author = package['author']
+  s.source = { :git => package['repository']['url'], :tag => s.version.to_s }
   s.source_files = 'ios/Sources/**/*.{swift,h,m,c,cc,mm,cpp}'
   s.exclude_files = 'ios/Sources/sources/POSWIFIManagerAsync.{h,m}'
   s.ios.deployment_target  = '14.0'
