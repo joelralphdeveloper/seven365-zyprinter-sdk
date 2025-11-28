@@ -424,6 +424,7 @@ extension ZywellSDK: POSBLEManagerDelegate {
 
 extension ZywellSDK: POSWIFIManagerDelegate {
     
+    @objc(POSWIFIManager:didConnectedToHost:port:)
     public func poswifiManager(_ manager: POSWIFIManager!, didConnectedToHost host: String!, port: UInt16) {
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(true, nil)
@@ -431,10 +432,12 @@ extension ZywellSDK: POSWIFIManagerDelegate {
         }
     }
     
+    @objc(POSWIFIManager:willDisconnectWithError:)
     public func poswifiManager(_ manager: POSWIFIManager, willDisconnectWithError error: Error?) {
         // Handle disconnection warning
     }
     
+    @objc(POSWIFIManager:didWriteDataWithTag:)
     public func poswifiManager(_ manager: POSWIFIManager!, didWriteDataWithTag tag: Int) {
         DispatchQueue.main.async { [weak self] in
             self?.printCompletion?(true, nil)
@@ -442,10 +445,12 @@ extension ZywellSDK: POSWIFIManagerDelegate {
         }
     }
     
+    @objc(POSWIFIManager:didReadData:tag:)
     public func poswifiManager(_ manager: POSWIFIManager, didReadData data: Data, tag: Int) {
         // Handle data reading if needed
     }
     
+    @objc(POSWIFIManagerDidDisconnected:)
     public func poswifiManagerDidDisconnected(_ manager: POSWIFIManager!) {
         // Handle disconnection
     }
