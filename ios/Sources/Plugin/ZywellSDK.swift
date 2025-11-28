@@ -376,7 +376,7 @@ import Network
 
 extension ZywellSDK: POSBLEManagerDelegate {
     
-    public func POSdidUpdatePeripheralList(_ peripherals: [Any]!, RSSIList rssiList: [Any]!) {
+    public func poSdidUpdatePeripheralList(_ peripherals: [Any]!, rssiList: [Any]!) {
         guard let peripherals = peripherals as? [CBPeripheral],
               let rssis = rssiList as? [NSNumber] else { return }
         
@@ -384,14 +384,14 @@ extension ZywellSDK: POSBLEManagerDelegate {
         self.peripheralRSSIs = rssis
     }
     
-    public func POSdidConnectPeripheral(_ peripheral: CBPeripheral!) {
+    public func poSdidConnectPeripheral(_ peripheral: CBPeripheral!) {
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(true, nil)
             self?.connectionCompletion = nil
         }
     }
     
-    public func POSdidFailToConnectPeripheral(_ peripheral: CBPeripheral!, error: NSError!) {
+    public func poSdidFailToConnectPeripheral(_ peripheral: CBPeripheral!, error: Error!) {
         let errorMsg = error?.localizedDescription ?? "Connection failed"
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(false, errorMsg)
@@ -399,11 +399,11 @@ extension ZywellSDK: POSBLEManagerDelegate {
         }
     }
     
-    public func POSdidDisconnectPeripheral(_ peripheral: CBPeripheral!, isAutoDisconnect: Bool) {
+    public func poSdidDisconnectPeripheral(_ peripheral: CBPeripheral!, isAutoDisconnect: Bool) {
         // Handle disconnection
     }
     
-    public func POSdidWriteValueForCharacteristic(_ character: CBCharacteristic!, error: NSError!) {
+    public func poSdidWriteValueForCharacteristic(_ character: CBCharacteristic!, error: Error!) {
         DispatchQueue.main.async { [weak self] in
             if let error = error {
                 self?.printCompletion?(false, error.localizedDescription)
