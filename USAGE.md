@@ -17,7 +17,7 @@ console.log(result.value); // 'Hello Zyprint!'
 try {
   const result = await Zyprint.discoverPrinters();
   console.log('Found printers:', result.printers);
-  
+
   // Example output:
   // [
   //   {
@@ -27,7 +27,7 @@ try {
   //   },
   //   {
   //     identifier: "192.168.1.100",
-  //     model: "Zywell Network Printer", 
+  //     model: "Zywell Network Printer",
   //     status: "ready"
   //   }
   // ]
@@ -40,13 +40,13 @@ try {
 
 ```typescript
 // Connect to a printer
-const printerIdentifier = "00:11:22:33:44:55"; // Bluetooth MAC or IP address
+const printerIdentifier = '00:11:22:33:44:55'; // Bluetooth MAC or IP address
 
 try {
-  const result = await Zyprint.connectToPrinter({ 
-    identifier: printerIdentifier 
+  const result = await Zyprint.connectToPrinter({
+    identifier: printerIdentifier,
   });
-  
+
   if (result.connected) {
     console.log('Successfully connected to printer');
   }
@@ -56,10 +56,10 @@ try {
 
 // Disconnect from printer
 try {
-  const result = await Zyprint.disconnectFromPrinter({ 
-    identifier: printerIdentifier 
+  const result = await Zyprint.disconnectFromPrinter({
+    identifier: printerIdentifier,
   });
-  
+
   if (result.disconnected) {
     console.log('Successfully disconnected from printer');
   }
@@ -75,9 +75,9 @@ try {
 try {
   const result = await Zyprint.printText({
     text: 'Hello World!\nThis is a test print.',
-    identifier: printerIdentifier
+    identifier: printerIdentifier,
   });
-  
+
   if (result.success) {
     console.log('Text printed successfully');
   }
@@ -88,25 +88,27 @@ try {
 
 ## Receipt Printing
 
+### Basic Receipt (No Formatting)
+
 ```typescript
-// Print a formatted receipt
+// Print a basic receipt with default formatting
 const receiptTemplate = {
-  header: "My Restaurant\n123 Main Street\nPhone: (555) 123-4567",
+  header: 'My Restaurant\n123 Main Street\nPhone: (555) 123-4567',
   items: [
-    { name: "Burger", price: "$12.99" },
-    { name: "Fries", price: "$4.99" },
-    { name: "Drink", price: "$2.99" }
+    { name: 'Burger', price: '$12.99' },
+    { name: 'Fries', price: '$4.99' },
+    { name: 'Drink', price: '$2.99' },
   ],
-  total: "$20.97",
-  footer: "Thank you for your visit!"
+  total: '$20.97',
+  footer: 'Thank you for your visit!',
 };
 
 try {
   const result = await Zyprint.printReceipt({
     template: receiptTemplate,
-    identifier: printerIdentifier
+    identifier: printerIdentifier,
   });
-  
+
   if (result.success) {
     console.log('Receipt printed successfully');
   }
@@ -115,19 +117,98 @@ try {
 }
 ```
 
+### Receipt with Formatting
+
+The SDK supports granular formatting control for each section of the receipt:
+
+```typescript
+const formattedReceipt = {
+  header: 'My Restaurant\n123 Main Street\nPhone: (555) 123-4567',
+  items: [
+    { name: 'Burger', price: '$12.99' },
+    { name: 'Fries', price: '$4.99' },
+    { name: 'Drink', price: '$2.99' },
+  ],
+  total: '$20.97',
+  footer: 'Thank you for your visit!',
+  formatting: {
+    headerSize: 'large', // 2x size header
+    itemBold: true, // Bold items
+    totalSize: 'large', // 2x size total
+    totalBold: true, // Bold total
+    footerSize: 'normal', // Normal size footer
+  },
+};
+
+await Zyprint.printReceipt({
+  template: formattedReceipt,
+  identifier: printerIdentifier,
+});
+```
+
+### Formatting Options
+
+| Option       | Type               | Values                                                | Description      |
+| ------------ | ------------------ | ----------------------------------------------------- | ---------------- |
+| `headerSize` | `string \| number` | `'normal'`, `'large'`, `'xlarge'`, `1`, `2`, `3`, `4` | Header font size |
+| `itemSize`   | `string \| number` | `'normal'`, `'large'`, `'xlarge'`, `1`, `2`, `3`, `4` | Item font size   |
+| `itemBold`   | `boolean`          | `true`, `false`                                       | Make items bold  |
+| `totalSize`  | `string \| number` | `'normal'`, `'large'`, `'xlarge'`, `1`, `2`, `3`, `4` | Total font size  |
+| `totalBold`  | `boolean`          | `true`, `false`                                       | Make total bold  |
+| `footerSize` | `string \| number` | `'normal'`, `'large'`, `'xlarge'`, `1`, `2`, `3`, `4` | Footer font size |
+
+**Size Mapping:**
+
+- `'normal'` or `1` = 1x width, 1x height (default)
+- `'large'` or `2` = 2x width, 2x height
+- `'xlarge'` or `3` = 3x width, 3x height
+- `4` = 4x width, 4x height
+
+### Formatting Examples
+
+**Minimal Receipt (Large Header Only):**
+
+```typescript
+formatting: {
+  headerSize: 'large';
+}
+```
+
+**Bold Emphasis:**
+
+```typescript
+formatting: {
+  itemBold: true,
+  totalBold: true
+}
+```
+
+**Premium Receipt (Everything Styled):**
+
+```typescript
+formatting: {
+  headerSize: 'xlarge',    // 3x size header
+  itemSize: 'large',       // 2x size items
+  itemBold: true,          // Bold items
+  totalSize: 'large',      // 2x size total
+  totalBold: true,         // Bold total
+  footerSize: 'normal'     // Normal footer
+}
+```
+
 ## Printer Status Check
 
 ```typescript
 // Check printer status
 try {
-  const status = await Zyprint.getPrinterStatus({ 
-    identifier: printerIdentifier 
+  const status = await Zyprint.getPrinterStatus({
+    identifier: printerIdentifier,
   });
-  
+
   console.log('Printer Status:', {
-    status: status.status,          // 'ready', 'busy', 'offline', 'paper_out', 'error'
+    status: status.status, // 'ready', 'busy', 'offline', 'paper_out', 'error'
     paperStatus: status.paperStatus, // 'ok', 'low', 'out', 'unknown'
-    connected: status.connected      // true/false
+    connected: status.connected, // true/false
   });
 } catch (error) {
   console.error('Status check failed:', error);
@@ -144,7 +225,7 @@ class ZyprintManager {
     try {
       // 1. Discover printers
       const discovery = await Zyprint.discoverPrinters();
-      
+
       if (discovery.printers.length === 0) {
         throw new Error('No printers found');
       }
@@ -152,7 +233,7 @@ class ZyprintManager {
       // 2. Connect to first available printer
       const printer = discovery.printers[0];
       const connection = await Zyprint.connectToPrinter({
-        identifier: printer.identifier
+        identifier: printer.identifier,
       });
 
       if (connection.connected) {
@@ -176,7 +257,7 @@ class ZyprintManager {
     try {
       // Check printer status first
       const status = await Zyprint.getPrinterStatus({
-        identifier: this.connectedPrinter
+        identifier: this.connectedPrinter,
       });
 
       if (status.status !== 'ready') {
@@ -191,14 +272,14 @@ class ZyprintManager {
       const result = await Zyprint.printReceipt({
         template: {
           header: orderData.restaurant.name + '\n' + orderData.restaurant.address,
-          items: orderData.items.map(item => ({
+          items: orderData.items.map((item) => ({
             name: item.name,
-            price: `$${item.price.toFixed(2)}`
+            price: `$${item.price.toFixed(2)}`,
           })),
           total: `$${orderData.total.toFixed(2)}`,
-          footer: 'Thank you for your order!'
+          footer: 'Thank you for your order!',
         },
-        identifier: this.connectedPrinter
+        identifier: this.connectedPrinter,
       });
 
       return result.success;
@@ -212,7 +293,7 @@ class ZyprintManager {
     if (this.connectedPrinter) {
       try {
         await Zyprint.disconnectFromPrinter({
-          identifier: this.connectedPrinter
+          identifier: this.connectedPrinter,
         });
         this.connectedPrinter = null;
       } catch (error) {
@@ -230,22 +311,22 @@ if (await printerManager.initializePrinter()) {
   const orderData = {
     restaurant: {
       name: "Joe's Diner",
-      address: "123 Main St, City, State"
+      address: '123 Main St, City, State',
     },
     items: [
-      { name: "Cheeseburger", price: 8.99 },
-      { name: "French Fries", price: 3.99 },
-      { name: "Soda", price: 1.99 }
+      { name: 'Cheeseburger', price: 8.99 },
+      { name: 'French Fries', price: 3.99 },
+      { name: 'Soda', price: 1.99 },
     ],
-    total: 14.97
+    total: 14.97,
   };
 
   const printed = await printerManager.printOrderReceipt(orderData);
-  
+
   if (printed) {
     console.log('Order receipt printed successfully!');
   }
-  
+
   // Clean up
   await printerManager.disconnect();
 }
@@ -257,7 +338,7 @@ The SDK provides comprehensive error handling:
 
 ```typescript
 try {
-  await Zyprint.connectToPrinter({ identifier: "invalid-id" });
+  await Zyprint.connectToPrinter({ identifier: 'invalid-id' });
 } catch (error) {
   // Possible error messages:
   // - "Printer not found"
@@ -268,9 +349,9 @@ try {
 }
 
 try {
-  await Zyprint.printText({ 
-    text: "Hello", 
-    identifier: "not-connected" 
+  await Zyprint.printText({
+    text: 'Hello',
+    identifier: 'not-connected',
   });
 } catch (error) {
   // Possible error messages:
@@ -285,12 +366,13 @@ try {
 ## Platform Support
 
 - ✅ iOS (Bluetooth, WiFi)
-- ✅ Android (Bluetooth, WiFi)  
+- ✅ Android (Bluetooth, WiFi)
 - ⚠️ Web (Limited - returns mock responses with warnings)
 
 ## Printer Communication Protocols
 
 The SDK supports standard ESC/POS commands for maximum compatibility:
+
 - Text formatting (bold, underline, size)
 - Character encoding (UTF-8)
 - Paper cutting

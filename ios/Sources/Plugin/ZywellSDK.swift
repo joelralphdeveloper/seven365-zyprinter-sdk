@@ -325,7 +325,21 @@ import Network
         // Header
         if let header = template["header"] as? String,
            let headerData = (header + "\n\n").data(using: .utf8) {
+            
+            // Get header size from formatting options
+            var sizeCode: UInt8 = 0x00 // Default: normal
+            if let formatting = template["formatting"] as? [String: Any],
+               let headerSize = formatting["headerSize"] {
+                sizeCode = mapHeaderSizeToCode(headerSize)
+            }
+            
+            // Set font size (GS ! n)
+            printData.append(Data([0x1D, 0x21, sizeCode]))
+            
             printData.append(headerData)
+            
+            // Reset to normal size (GS ! 0)
+            printData.append(Data([0x1D, 0x21, 0x00]))
         }
         
         // Left align (ESC a 0)
@@ -333,6 +347,24 @@ import Network
         
         // Items
         if let items = template["items"] as? [[String: Any]] {
+            // Get item formatting
+            var itemSizeCode: UInt8 = 0x00
+            var itemBold = false
+            if let formatting = template["formatting"] as? [String: Any] {
+                if let itemSize = formatting["itemSize"] {
+                    itemSizeCode = mapHeaderSizeToCode(itemSize)
+                }
+                itemBold = formatting["itemBold"] as? Bool ?? false
+            }
+            
+            // Apply item formatting
+            if itemBold {
+                printData.append(Data([0x1B, 0x45, 0x01])) // Bold on (ESC E 1)
+            }
+            if itemSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, itemSizeCode])) // Set size
+            }
+            
             for item in items {
                 if let name = item["name"] as? String,
                    let price = item["price"] as? String {
@@ -342,18 +374,69 @@ import Network
                     }
                 }
             }
+            
+            // Reset item formatting
+            if itemSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
+            if itemBold {
+                printData.append(Data([0x1B, 0x45, 0x00])) // Bold off (ESC E 0)
+            }
         }
         
         // Total
         if let total = template["total"] as? String,
            let totalData = ("\nTotal: " + total + "\n").data(using: .utf8) {
+            // Get total formatting
+            var totalSizeCode: UInt8 = 0x00
+            var totalBold = false
+            if let formatting = template["formatting"] as? [String: Any] {
+                if let totalSize = formatting["totalSize"] {
+                    totalSizeCode = mapHeaderSizeToCode(totalSize)
+                }
+                totalBold = formatting["totalBold"] as? Bool ?? false
+            }
+            
+            // Apply total formatting
+            if totalBold {
+                printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
+            }
+            if totalSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, totalSizeCode])) // Set size
+            }
+            
             printData.append(totalData)
+            
+            // Reset total formatting
+            if totalSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
+            if totalBold {
+                printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
+            }
         }
         
         // Footer
         if let footer = template["footer"] as? String,
            let footerData = (footer + "\n").data(using: .utf8) {
+            // Get footer formatting
+            var footerSizeCode: UInt8 = 0x00
+            if let formatting = template["formatting"] as? [String: Any],
+               let footerSize = formatting["footerSize"] {
+                footerSizeCode = mapHeaderSizeToCode(footerSize)
+            }
+            
+            // Apply footer formatting
+            if footerSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, footerSizeCode])) // Set size
+            }
+            
             printData.append(footerData)
+            
+            // Reset footer formatting
+            if footerSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
         }
         
         // Line feeds
@@ -363,6 +446,28 @@ import Network
         printData.append(Data([0x1D, 0x56, 0x41, 0x10]))
         
         return printData
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func mapHeaderSizeToCode(_ size: Any) -> UInt8 {
+        if let sizeInt = size as? Int {
+            switch sizeInt {
+            case 1: return 0x00
+            case 2: return 0x11
+            case 3: return 0x22
+            case 4: return 0x33
+            default: return 0x00
+            }
+        } else if let sizeStr = size as? String {
+            switch sizeStr {
+            case "normal": return 0x00
+            case "large": return 0x11
+            case "xlarge": return 0x22
+            default: return 0x00
+            }
+        }
+        return 0x00
     }
     
     // MARK: - Callback Storage

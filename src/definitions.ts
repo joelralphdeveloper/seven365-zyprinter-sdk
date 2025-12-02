@@ -9,6 +9,23 @@ export interface ZyPrinter {
   rssi?: number;
 }
 
+export interface ReceiptFormatting {
+  headerSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
+  itemSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
+  itemBold?: boolean;
+  totalSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
+  totalBold?: boolean;
+  footerSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
+}
+
+export interface ReceiptTemplate {
+  header?: string;
+  items?: Array<{ name: string; price: string }>;
+  total?: string;
+  footer?: string;
+  formatting?: ReceiptFormatting;
+}
+
 export interface ZyprintPlugin {
   echo(options: { value: string }): Promise<{ value: string }>;
   
@@ -23,7 +40,7 @@ export interface ZyprintPlugin {
   
   // Printing Methods
   printText(options: { text: string; identifier: string }): Promise<{ success: boolean }>;
-  printReceipt(options: { template: Record<string, any>; identifier: string }): Promise<{ success: boolean }>;
+  printReceipt(options: { template: ReceiptTemplate; identifier: string }): Promise<{ success: boolean }>;
   
   // Printer Status
   getPrinterStatus(options: { identifier: string }): Promise<{ status: string; paperStatus: string; connected: boolean }>;

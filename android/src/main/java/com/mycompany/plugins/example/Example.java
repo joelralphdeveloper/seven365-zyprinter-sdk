@@ -247,7 +247,22 @@ public class Zyprint {
             
             // Header
             if (template.has("header")) {
+                // Get header size from formatting
+                byte sizeCode = 0x00; // Default: normal
+                if (template.has("formatting")) {
+                    JSObject formatting = template.getJSObject("formatting");
+                    if (formatting != null && formatting.has("headerSize")) {
+                        sizeCode = mapHeaderSizeToCode(formatting.get("headerSize"));
+                    }
+                }
+                
+                // Set font size (GS ! n)
+                receiptText.append((char) 0x1D).append((char) 0x21).append((char) sizeCode);
+                
                 receiptText.append(template.getString("header")).append("\n\n");
+                
+                // Reset to normal size
+                receiptText.append((char) 0x1D).append((char) 0x21).append((char) 0x00);
             }
             
             // Left align for items
@@ -255,6 +270,27 @@ public class Zyprint {
             
             // Items
             if (template.has("items")) {
+                // Get item formatting
+                byte itemSizeCode = 0x00;
+                boolean itemBold = false;
+                if (template.has("formatting")) {
+                    JSObject formatting = template.getJSObject("formatting");
+                    if (formatting != null) {
+                        if (formatting.has("itemSize")) {
+                            itemSizeCode = mapHeaderSizeToCode(formatting.get("itemSize"));
+                        }
+                        itemBold = formatting.optBoolean("itemBold", false);
+                    }
+                }
+                
+                // Apply item formatting
+                if (itemBold) {
+                    receiptText.append((char) 0x1B).append((char) 0x45).append((char) 0x01); // Bold on
+                }
+                if (itemSizeCode != 0x00) {
+                    receiptText.append((char) 0x1D).append((char) 0x21).append((char) itemSizeCode); // Set size
+                }
+                
                 JSArray items = template.getJSArray("items");
                 for (int i = 0; i < items.length(); i++) {
                     JSObject item = items.getJSObject(i);
@@ -262,11 +298,72 @@ public class Zyprint {
                     String price = item.optString("price", "");
                     receiptText.append(name).append("\t").append(price).append("\n");
                 }
+                
+                // Reset item formatting
+                if (itemSizeCode != 0x00) {
+                    receiptText.append((char) 0x1D).append((char) 0x21).append((char) 0x00); // Normal size
+                }
+                if (itemBold) {
+                    receiptText.append((char) 0x1B).append((char) 0x45).append((char) 0x00); // Bold off
+                }
             }
             
             // Total
             if (template.has("total")) {
+                // Get total formatting
+                byte totalSizeCode = 0x00;
+                boolean totalBold = false;
+                if (template.has("formatting")) {
+                    JSObject formatting = template.getJSObject("formatting");
+                    if (formatting != null) {
+                        if (formatting.has("totalSize")) {
+                            totalSizeCode = mapHeaderSizeToCode(formatting.get("totalSize"));
+                        }
+                        totalBold = formatting.optBoolean("totalBold", false);
+                    }
+                }
+                
+                // Apply total formatting
+                if (totalBold) {
+                    receiptText.append((char) 0x1B).append((char) 0x45).append((char) 0x01); // Bold on
+                }
+                if (totalSizeCode != 0x00) {
+                    receiptText.append((char) 0x1D).append((char) 0x21).append((char) totalSizeCode); // Set size
+                }
+                
                 receiptText.append("\nTotal: ").append(template.getString("total")).append("\n");
+                
+                // Reset total formatting
+                if (totalSizeCode != 0x00) {
+                    receiptText.append((char) 0x1D).append((char) 0x21).append((char) 0x00); // Normal size
+                }
+                if (totalBold) {
+                    receiptText.append((char) 0x1B).append((char) 0x45).append((char) 0x00); // Bold off
+                }
+            }
+            
+            // Footer
+            if (template.has("footer")) {
+                // Get footer formatting
+                byte footerSizeCode = 0x00;
+                if (template.has("formatting")) {
+                    JSObject formatting = template.getJSObject("formatting");
+                    if (formatting != null && formatting.has("footerSize")) {
+                        footerSizeCode = mapHeaderSizeToCode(formatting.get("footerSize"));
+                    }
+                }
+                
+                // Apply footer formatting
+                if (footerSizeCode != 0x00) {
+                    receiptText.append((char) 0x1D).append((char) 0x21).append((char) footerSizeCode); // Set size
+                }
+                
+                receiptText.append(template.getString("footer")).append("\n");
+                
+                // Reset footer formatting
+                if (footerSizeCode != 0x00) {
+                    receiptText.append((char) 0x1D).append((char) 0x21).append((char) 0x00); // Normal size
+                }
             }
             
             // Line feeds and cut
@@ -278,6 +375,28 @@ public class Zyprint {
             Log.e(TAG, "Error formatting receipt", e);
             return new byte[0];
         }
+    }
+
+    private byte mapHeaderSizeToCode(Object size) {
+        if (size instanceof Integer) {
+            int sizeInt = (Integer) size;
+            switch (sizeInt) {
+                case 1: return 0x00;
+                case 2: return 0x11;
+                case 3: return 0x22;
+                case 4: return 0x33;
+                default: return 0x00;
+            }
+        } else if (size instanceof String) {
+            String sizeStr = (String) size;
+            switch (sizeStr) {
+                case "normal": return 0x00;
+                case "large": return 0x11;
+                case "xlarge": return 0x22;
+                default: return 0x00;
+            }
+        }
+        return 0x00;
     }
 
     private static class PrinterConnection {
