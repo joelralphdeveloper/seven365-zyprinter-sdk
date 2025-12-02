@@ -373,10 +373,11 @@ import Network
 }
 
 // MARK: - POSBLEManagerDelegate
-
 extension ZywellSDK: POSBLEManagerDelegate {
     
-    public func poSdidUpdatePeripheralList(_ peripherals: [Any]!, rssiList: [Any]!) {
+    // Method 1: Already had
+
+    @objc public func poSdidUpdatePeripheralList(_ peripherals: [Any]?, rssiList: [Any]?) {
         guard let peripherals = peripherals as? [CBPeripheral],
               let rssis = rssiList as? [NSNumber] else { return }
         
@@ -384,14 +385,18 @@ extension ZywellSDK: POSBLEManagerDelegate {
         self.peripheralRSSIs = rssis
     }
     
-    public func poSdidConnectPeripheral(_ peripheral: CBPeripheral!) {
+    
+    // Method 2: Already had
+     @objc public func poSdidConnect(_ peripheral: CBPeripheral?) {
+        guard let peripheral = peripheral else { return }
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(true, nil)
             self?.connectionCompletion = nil
         }
     }
     
-    public func poSdidFailToConnectPeripheral(_ peripheral: CBPeripheral!, error: Error!) {
+    // Method 3: Already had
+    @objc public func poSdidFail(toConnect peripheral: CBPeripheral?, error: Error?) {
         let errorMsg = error?.localizedDescription ?? "Connection failed"
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(false, errorMsg)
@@ -399,11 +404,16 @@ extension ZywellSDK: POSBLEManagerDelegate {
         }
     }
     
-    public func poSdidDisconnectPeripheral(_ peripheral: CBPeripheral!, isAutoDisconnect: Bool) {
+    // Method 4: Already had
+    @objc public func poSdidDisconnectPeripheral(_ peripheral: CBPeripheral?, isAutoDisconnect: Bool) {
         // Handle disconnection
+        if let peripheral = peripheral {
+            print("Disconnected from: \(peripheral.name ?? "Unknown")")
+        }
     }
     
-    public func poSdidWriteValue(for character: CBCharacteristic!, error: Error!) {
+    // Method 5: Fixed based on error
+    @objc public func poSdidWriteValue(for character: CBCharacteristic?, error: Error?) {
         DispatchQueue.main.async { [weak self] in
             if let error = error {
                 self?.printCompletion?(false, error.localizedDescription)
@@ -413,12 +423,42 @@ extension ZywellSDK: POSBLEManagerDelegate {
             self?.printCompletion = nil
         }
     }
+    
+    // ADD THESE COMMONLY REQUIRED METHODS:
+    
+    // Method 6: Bluetooth state updates - VERY COMMONLY REQUIRED
+    @objc public func poScentralManagerDidUpdateState(_ central: Any?) {
+        if let central = central as? CBCentralManager {
+            print("Bluetooth state: \(central.state.rawValue)")
+        }
+    }
+    
+    // Method 7: Did discover services
+    @objc public func poSdidDiscoverServices(_ peripheral: CBPeripheral!) {
+        // Handle service discovery
+    }
+    
+    // Method 8: Did discover characteristics
+    @objc public func poSdidDiscoverCharacteristics(for service: CBService!, error: Error!) {
+        // Handle characteristic discovery
+    }
+    
+    // Method 9: Did update value for characteristic
+    @objc public func poSdidUpdateValue(for characteristic: CBCharacteristic!, error: Error!) {
+        // Handle updated values
+    }
+    
+    // Method 10: Did update notification state
+    @objc public func poSdidUpdateNotificationState(for characteristic: CBCharacteristic!, error: Error!) {
+        // Handle notification state changes
+    }
 }
 
 // MARK: - POSWIFIManagerDelegate
 
 extension ZywellSDK: POSWIFIManagerDelegate {
     
+    @objc(POSWIFIManager:didConnectedToHost:port:)
     public func poswifiManager(_ manager: POSWIFIManager!, didConnectedToHost host: String!, port: UInt16) {
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(true, nil)
@@ -426,10 +466,12 @@ extension ZywellSDK: POSWIFIManagerDelegate {
         }
     }
     
+    @objc(POSWIFIManager:willDisconnectWithError:)
     public func poswifiManager(_ manager: POSWIFIManager, willDisconnectWithError error: Error?) {
         // Handle disconnection warning
     }
     
+    @objc(POSWIFIManager:didWriteDataWithTag:)
     public func poswifiManager(_ manager: POSWIFIManager!, didWriteDataWithTag tag: Int) {
         DispatchQueue.main.async { [weak self] in
             self?.printCompletion?(true, nil)
@@ -437,10 +479,12 @@ extension ZywellSDK: POSWIFIManagerDelegate {
         }
     }
     
-    public func poswifiManager(_ manager: POSWIFIManager, didReadData data: Data, tag: Int) {
+    @objc(POSWIFIManager:didReadData:tag:)
+    public func poswifiManager(_ manager: POSWIFIManager, didRead data: Data, tag: Int) {
         // Handle data reading if needed
     }
     
+    @objc(POSWIFIManagerDidDisconnected:)
     public func poswifiManagerDidDisconnected(_ manager: POSWIFIManager!) {
         // Handle disconnection
     }
