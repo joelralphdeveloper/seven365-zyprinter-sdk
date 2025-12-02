@@ -377,7 +377,7 @@ import Network
 extension ZywellSDK: POSBLEManagerDelegate {
     
     @objc(POSdidUpdatePeripheralList:RSSIList:)
-    public func poSdidUpdatePeripheralList(_ peripherals: [Any]!, rssiList: [Any]!) {
+    public func poSdidUpdatePeripheralList(_ peripherals: [Any], rssiList: [Any]) {
         guard let peripherals = peripherals as? [CBPeripheral],
               let rssis = rssiList as? [NSNumber] else { return }
         
@@ -386,7 +386,7 @@ extension ZywellSDK: POSBLEManagerDelegate {
     }
     
     @objc(POSdidConnectPeripheral:)
-    public func poSdidConnectPeripheral(_ peripheral: CBPeripheral!) {
+    public func poSdidConnectPeripheral(_ peripheral: CBPeripheral) {
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(true, nil)
             self?.connectionCompletion = nil
@@ -394,8 +394,8 @@ extension ZywellSDK: POSBLEManagerDelegate {
     }
     
     @objc(POSdidFailToConnectPeripheral:error:)
-    public func poSdidFailToConnectPeripheral(_ peripheral: CBPeripheral!, error: Error!) {
-        let errorMsg = error?.localizedDescription ?? "Connection failed"
+    public func poSdidFailToConnectPeripheral(_ peripheral: CBPeripheral, error: Error) {
+        let errorMsg = error.localizedDescription
         DispatchQueue.main.async { [weak self] in
             self?.connectionCompletion?(false, errorMsg)
             self?.connectionCompletion = nil
@@ -403,12 +403,12 @@ extension ZywellSDK: POSBLEManagerDelegate {
     }
     
     @objc(POSdidDisconnectPeripheral:isAutoDisconnect:)
-    public func poSdidDisconnectPeripheral(_ peripheral: CBPeripheral!, isAutoDisconnect: Bool) {
+    public func poSdidDisconnectPeripheral(_ peripheral: CBPeripheral, isAutoDisconnect: Bool) {
         // Handle disconnection
     }
     
     @objc(POSdidWriteValueForCharacteristic:error:)
-    public func poSdidWriteValueForCharacteristic(_ character: CBCharacteristic!, error: Error!) {
+    public func poSdidWriteValueForCharacteristic(_ character: CBCharacteristic, error: Error?) {
         DispatchQueue.main.async { [weak self] in
             if let error = error {
                 self?.printCompletion?(false, error.localizedDescription)
