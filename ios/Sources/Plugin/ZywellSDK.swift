@@ -252,6 +252,7 @@ import Network
     }
     
     @objc public func printReceipt(template: [String: Any], identifier: String, completion: @escaping (Bool, String?) -> Void) {
+        print("ZywellSDK: Received template: \(template)")
         guard let data = formatReceiptForPrinter(template: template) else {
             completion(false, "Failed to format receipt")
             return
@@ -323,7 +324,7 @@ import Network
         printData.append(Data([0x1B, 0x61, 0x01]))
         
         // Header
-        if let header = template["header"] as? String,
+        if let header = getString(template["header"]),
            let headerData = (header + "\n\n").data(using: .utf8) {
             
             // Get header size from formatting options
@@ -332,6 +333,7 @@ import Network
                let headerSize = formatting["headerSize"] {
                 sizeCode = mapHeaderSizeToCode(headerSize)
             }
+            print("ZywellSDK: Header size code: \(sizeCode)")
             
             // Set font size (GS ! n)
             printData.append(Data([0x1D, 0x21, sizeCode]))
@@ -354,8 +356,9 @@ import Network
                 if let itemSize = formatting["itemSize"] {
                     itemSizeCode = mapHeaderSizeToCode(itemSize)
                 }
-                itemBold = formatting["itemBold"] as? Bool ?? false
+                itemBold = getBool(formatting["itemBold"])
             }
+            print("ZywellSDK: Item bold: \(itemBold)")
             
             // Apply item formatting
             if itemBold {
@@ -366,8 +369,8 @@ import Network
             }
             
             for item in items {
-                if let name = item["name"] as? String,
-                   let price = item["price"] as? String {
+                if let name = getString(item["name"]),
+                   let price = getString(item["price"]) {
                     let line = String(format: "%@\t%@\n", name, price)
                     if let lineData = line.data(using: .utf8) {
                         printData.append(lineData)
@@ -385,7 +388,7 @@ import Network
         }
         
         // Total
-        if let total = template["total"] as? String,
+        if let total = getString(template["total"]),
            let totalData = ("\nTotal: " + total + "\n").data(using: .utf8) {
             // Get total formatting
             var totalSizeCode: UInt8 = 0x00
@@ -394,8 +397,10 @@ import Network
                 if let totalSize = formatting["totalSize"] {
                     totalSizeCode = mapHeaderSizeToCode(totalSize)
                 }
-                totalBold = formatting["totalBold"] as? Bool ?? false
+                totalBold = getBool(formatting["totalBold"])
             }
+            print("ZywellSDK: Total size code: \(totalSizeCode)")
+            print("ZywellSDK: Total bold: \(totalBold)")
             
             // Apply total formatting
             if totalBold {
@@ -417,7 +422,7 @@ import Network
         }
         
         // Footer
-        if let footer = template["footer"] as? String,
+        if let footer = getString(template["footer"]),
            let footerData = (footer + "\n").data(using: .utf8) {
             // Get footer formatting
             var footerSizeCode: UInt8 = 0x00
@@ -460,14 +465,42 @@ import Network
             default: return 0x00
             }
         } else if let sizeStr = size as? String {
-            switch sizeStr {
-            case "normal": return 0x00
-            case "large": return 0x11
-            case "xlarge": return 0x22
+            switch sizeStr.lowercased() {
+            case "normal", "1": return 0x00
+            case "large", "2": return 0x11
+            case "xlarge", "3": return 0x22
+            case "4": return 0x33
             default: return 0x00
             }
+        } else if let sizeNum = size as? NSNumber {
+             switch sizeNum.intValue {
+             case 1: return 0x00
+             case 2: return 0x11
+             case 3: return 0x22
+             case 4: return 0x33
+             default: return 0x00
+             }
         }
         return 0x00
+    }
+    
+    private func getBool(_ value: Any?) -> Bool {
+        guard let value = value else { return false }
+        if let boolVal = value as? Bool { return boolVal }
+        if let strVal = value as? String {
+            return ["true", "yes", "1"].contains(strVal.lowercased())
+        }
+        if let numVal = value as? NSNumber {
+            return numVal.boolValue
+        }
+        return false
+    }
+
+    private func getString(_ value: Any?) -> String? {
+        guard let value = value else { return nil }
+        if let strVal = value as? String { return strVal }
+        if let numVal = value as? NSNumber { return numVal.stringValue }
+        return String(describing: value)
     }
     
     // MARK: - Callback Storage
