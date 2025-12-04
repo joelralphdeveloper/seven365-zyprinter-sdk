@@ -178,6 +178,7 @@ getPrinterStatus(options: { identifier: string; }) => Promise<{ status: string; 
 | ---------------- | ------------------------------------------------------------------------------ |
 | **`header`**     | <code>string</code>                                                            |
 | **`items`**      | <code><a href="#array">Array</a>&lt;{ name: string; price: string }&gt;</code> |
+| **`kitchen`**    | <code><a href="#array">Array</a>&lt;any&gt;</code>                             |
 | **`total`**      | <code>string</code>                                                            |
 | **`footer`**     | <code>string</code>                                                            |
 | **`formatting`** | <code><a href="#receiptformatting">ReceiptFormatting</a></code>                |
