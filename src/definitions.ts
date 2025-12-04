@@ -21,6 +21,7 @@ export interface ReceiptFormatting {
 export interface ReceiptTemplate {
   header?: string;
   items?: Array<{ name: string; price: string }>;
+  kitchen?: Array<any>; // Support for kitchen data payload
   total?: string;
   footer?: string;
   formatting?: ReceiptFormatting;

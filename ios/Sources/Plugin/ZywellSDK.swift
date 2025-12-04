@@ -348,7 +348,86 @@ import Network
         printData.append(Data([0x1B, 0x61, 0x00]))
         
         // Items
-        if let items = template["items"] as? [[String: Any]] {
+        if let kitchen = template["kitchen"] as? [[String: Any]] {
+            // Get item formatting
+            var itemSizeCode: UInt8 = 0x00
+            var itemBold = false
+            if let formatting = template["formatting"] as? [String: Any] {
+                if let itemSize = formatting["itemSize"] {
+                    itemSizeCode = mapHeaderSizeToCode(itemSize)
+                }
+                itemBold = getBool(formatting["itemBold"])
+            }
+            
+            // Apply item formatting
+            if itemBold {
+                printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
+            }
+            if itemSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, itemSizeCode])) // Set size
+            }
+            
+            for item in kitchen {
+                var itemName = ""
+                var itemPrice = ""
+                
+                // Get name from menu object
+                if let menu = item["menu"] as? [String: Any],
+                   let name = getString(menu["name"]) {
+                    itemName = name
+                }
+                
+                // Add quantity
+                if let qty = item["quantity"] {
+                    itemName += " x\(getString(qty) ?? "1")"
+                }
+                
+                // Format price
+                if let price = item["total_price"] {
+                    if let priceDouble = Double(getString(price) ?? "0") {
+                        itemPrice = String(format: "$%.2f", priceDouble)
+                    } else {
+                        itemPrice = "$" + (getString(price) ?? "0.00")
+                    }
+                }
+                
+                // Print main item
+                let line = String(format: "%@\t%@\n", itemName, itemPrice)
+                if let lineData = line.data(using: .utf8) {
+                    printData.append(lineData)
+                }
+                
+                // Print modifiers
+                if let modifiers = item["modifiers"] as? [[String: Any]] {
+                    for mod in modifiers {
+                        if let modName = getString(mod["name"]) {
+                            var modLine = "  + \(modName)"
+                            
+                            // Only show price if > 0
+                            if let modPrice = mod["price"],
+                               let priceDouble = Double(getString(modPrice) ?? "0"),
+                               priceDouble > 0 {
+                                modLine += String(format: "\t$%.2f", priceDouble)
+                            }
+                            modLine += "\n"
+                            
+                            if let modData = modLine.data(using: .utf8) {
+                                printData.append(modData)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Reset item formatting
+            if itemSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
+            if itemBold {
+                printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
+            }
+            
+        } else if let items = template["items"] as? [[String: Any]] {
             // Get item formatting
             var itemSizeCode: UInt8 = 0x00
             var itemBold = false
