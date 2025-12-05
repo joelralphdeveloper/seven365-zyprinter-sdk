@@ -34,6 +34,7 @@ export interface ZyprintPlugin {
   discoverPrinters(): Promise<{ printers: ZyPrinter[] }>;
   discoverBluetoothPrinters(): Promise<{ printers: ZyPrinter[] }>;
   discoverWiFiPrinters(options?: { networkRange?: string }): Promise<{ printers: ZyPrinter[] }>;
+  discoverUSBPrinters(): Promise<{ printers: ZyPrinter[] }>;
   
   // Connection Management
   connectToPrinter(options: { identifier: string }): Promise<{ connected: boolean }>;

@@ -17,6 +17,7 @@ public class ZyprintPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "discoverPrinters", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "discoverBluetoothPrinters", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "discoverWiFiPrinters", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "discoverUSBPrinters", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "connectToPrinter", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "disconnectFromPrinter", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "printText", returnType: CAPPluginReturnPromise),
@@ -60,6 +61,18 @@ public class ZyprintPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func discoverWiFiPrinters(_ call: CAPPluginCall) {
         let networkRange = call.getString("networkRange")
         implementation.discoverWiFiPrinters(networkRange: networkRange) { printers, error in
+            if let error = error {
+                call.reject(error)
+            } else {
+                call.resolve([
+                    "printers": printers
+                ])
+            }
+        }
+    }
+    
+    @objc func discoverUSBPrinters(_ call: CAPPluginCall) {
+        implementation.discoverUSBPrinters { printers, error in
             if let error = error {
                 call.reject(error)
             } else {

@@ -8,6 +8,7 @@
 import Foundation
 import CoreBluetooth
 import Network
+import ExternalAccessory
 
 
 @objc public class ZywellSDK: NSObject {
@@ -77,6 +78,51 @@ import Network
         
         let prefix = ipAddress.components(separatedBy: ".").dropLast().joined(separator: ".") + "."
         scanSubnet(prefix: prefix, completion: completion)
+    }
+    
+    @objc public func discoverUSBPrinters(completion: @escaping ([[String: Any]], String?) -> Void) {
+        // Query External Accessory framework for connected accessories
+        let accessoryManager = EAAccessoryManager.shared()
+        let connectedAccessories = accessoryManager.connectedAccessories
+        
+        var usbPrinters: [[String: Any]] = []
+        
+        // Filter for printer accessories
+        // Note: This requires the app to declare supported accessory protocols in Info.plist
+        // under the key "UISupportedExternalAccessoryProtocols"
+        for accessory in connectedAccessories {
+            // Check if the accessory might be a printer
+            // Common printer protocol strings include manufacturer-specific identifiers
+            let isPotentialPrinter = accessory.protocolStrings.contains { protocol in
+                protocol.lowercased().contains("printer") ||
+                protocol.lowercased().contains("print") ||
+                protocol.lowercased().contains("pos")
+            }
+            
+            if isPotentialPrinter || !accessory.protocolStrings.isEmpty {
+                usbPrinters.append([
+                    "identifier": String(accessory.connectionID),
+                    "model": "\(accessory.manufacturer) \(accessory.name)",
+                    "status": accessory.isConnected ? "ready" : "offline",
+                    "connectionType": "usb",
+                    "manufacturer": accessory.manufacturer,
+                    "modelNumber": accessory.modelNumber,
+                    "serialNumber": accessory.serialNumber,
+                    "firmwareRevision": accessory.firmwareRevision,
+                    "hardwareRevision": accessory.hardwareRevision,
+                    "protocols": accessory.protocolStrings
+                ])
+            }
+        }
+        
+        // Log information about USB discovery
+        if usbPrinters.isEmpty {
+            print("ZywellSDK: No USB accessories found. Note: iOS requires MFi-certified accessories with declared protocol strings in Info.plist")
+        } else {
+            print("ZywellSDK: Found \(usbPrinters.count) potential USB printer(s)")
+        }
+        
+        completion(usbPrinters, nil)
     }
     
     private func scanSubnet(prefix: String, completion: @escaping ([[String: Any]], String?) -> Void) {
