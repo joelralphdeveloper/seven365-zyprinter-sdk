@@ -15,6 +15,50 @@ console.log(result.value); // 'Hello Zyprint!'
 ```typescript
 // Discover available printers
 try {
+  const wifiPrinters = await Zyprint.discoverWiFiPrinters();
+console.log('WiFi printers:', wifiPrinters.printers);
+```
+
+### USB Printer Discovery
+
+> **⚠️ iOS USB Limitations**  
+> On iOS, USB printer support requires **MFi-certified (Made for iPhone/iPad) accessories**. Standard USB printers connected via Lightning or USB-C will **not** be detected unless:
+>
+> 1. The printer is MFi-certified
+> 2. Your app's `Info.plist` declares the printer's protocol strings under `UISupportedExternalAccessoryProtocols`
+> 3. The printer manufacturer has provided the necessary protocol strings
+>
+> If these requirements are not met, `discoverUSBPrinters()` will return an empty array.
+
+```typescript
+// Discover USB printers (iOS: requires MFi-certified printers)
+const usbPrinters = await Zyprint.discoverUSBPrinters();
+console.log('USB printers:', usbPrinters.printers);
+
+// USB printer response includes additional metadata
+usbPrinters.printers.forEach((printer) => {
+  console.log('Manufacturer:', printer.manufacturer);
+  console.log('Model Number:', printer.modelNumber);
+  console.log('Serial Number:', printer.serialNumber);
+  console.log('Protocols:', printer.protocols);
+});
+```
+
+**Info.plist Configuration (Required for iOS USB):**
+
+```xml
+<key>UISupportedExternalAccessoryProtocols</key>
+<array>
+  <string>com.yourprinter.protocol</string>
+  <!-- Add your printer's protocol strings here -->
+</array>
+```
+
+### Discover All Printers
+
+````typescript
+// Discover available printers
+try {
   const result = await Zyprint.discoverPrinters();
   console.log('Found printers:', result.printers);
 
@@ -380,3 +424,4 @@ The SDK supports standard ESC/POS commands for maximum compatibility:
 - Line feeds and spacing
 
 For Zywell-specific features, the SDK can be extended with custom command sequences.
+````

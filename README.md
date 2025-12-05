@@ -9,6 +9,17 @@ npm install seven365-zyprinter
 npx cap sync
 ```
 
+## Features
+
+- ✅ **Bluetooth Printer Discovery & Connection**
+- ✅ **WiFi Network Printer Discovery & Connection**
+- ✅ **USB Printer Support** (iOS: requires MFi-certified accessories)
+- ✅ **Text & Receipt Printing** with formatting options
+- ✅ **Printer Status Monitoring**
+- ✅ **ESC/POS Command Support**
+
+> **Note:** iOS USB printer support requires MFi-certified (Made for iPhone/iPad) accessories and proper Info.plist configuration. See [USAGE.md](./USAGE.md#usb-printer-discovery) for details.
+
 ## API
 
 <docgen-index>
@@ -17,6 +28,7 @@ npx cap sync
 * [`discoverPrinters()`](#discoverprinters)
 * [`discoverBluetoothPrinters()`](#discoverbluetoothprinters)
 * [`discoverWiFiPrinters(...)`](#discoverwifiprinters)
+* [`discoverUSBPrinters()`](#discoverusbprinters)
 * [`connectToPrinter(...)`](#connecttoprinter)
 * [`disconnectFromPrinter(...)`](#disconnectfromprinter)
 * [`printText(...)`](#printtext)
@@ -75,6 +87,17 @@ discoverWiFiPrinters(options?: { networkRange?: string | undefined; } | undefine
 | Param         | Type                                    |
 | ------------- | --------------------------------------- |
 | **`options`** | <code>{ networkRange?: string; }</code> |
+
+**Returns:** <code>Promise&lt;{ printers: ZyPrinter[]; }&gt;</code>
+
+--------------------
+
+
+### discoverUSBPrinters()
+
+```typescript
+discoverUSBPrinters() => Promise<{ printers: ZyPrinter[]; }>
+```
 
 **Returns:** <code>Promise&lt;{ printers: ZyPrinter[]; }&gt;</code>
 

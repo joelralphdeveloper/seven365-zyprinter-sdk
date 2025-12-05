@@ -23,6 +23,11 @@ export class ZyprintWeb extends WebPlugin implements ZyprintPlugin {
     return { printers: [] };
   }
 
+  async discoverUSBPrinters(): Promise<{ printers: ZyPrinter[] }> {
+    console.warn('Zyprint USB discovery is not available on web platform');
+    return { printers: [] };
+  }
+
   async connectToPrinter(_options: { identifier: string }): Promise<{ connected: boolean }> {
     console.warn('Zyprint connection is not available on web platform');
     return { connected: false };
