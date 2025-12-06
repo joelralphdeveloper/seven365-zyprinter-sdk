@@ -35,6 +35,7 @@ npx cap sync
 * [`printReceipt(...)`](#printreceipt)
 * [`getPrinterStatus(...)`](#getprinterstatus)
 * [Interfaces](#interfaces)
+* [Type Aliases](#type-aliases)
 
 </docgen-index>
 
@@ -197,14 +198,46 @@ getPrinterStatus(options: { identifier: string; }) => Promise<{ status: string; 
 
 #### ReceiptTemplate
 
-| Prop             | Type                                                                           |
-| ---------------- | ------------------------------------------------------------------------------ |
-| **`header`**     | <code>string</code>                                                            |
-| **`items`**      | <code><a href="#array">Array</a>&lt;{ name: string; price: string }&gt;</code> |
-| **`kitchen`**    | <code><a href="#array">Array</a>&lt;any&gt;</code>                             |
-| **`total`**      | <code>string</code>                                                            |
-| **`footer`**     | <code>string</code>                                                            |
-| **`formatting`** | <code><a href="#receiptformatting">ReceiptFormatting</a></code>                |
+| Prop               | Type                                                                           |
+| ------------------ | ------------------------------------------------------------------------------ |
+| **`header`**       | <code><a href="#headerconfig">HeaderConfig</a></code>                          |
+| **`kitchen`**      | <code>KitchenItem[]</code>                                                     |
+| **`items`**        | <code><a href="#array">Array</a>&lt;{ name: string; price: string }&gt;</code> |
+| **`total`**        | <code>string</code>                                                            |
+| **`order_type`**   | <code>string</code>                                                            |
+| **`table_name`**   | <code>string</code>                                                            |
+| **`order_number`** | <code>string</code>                                                            |
+| **`footer`**       | <code><a href="#footerconfig">FooterConfig</a></code>                          |
+| **`item`**         | <code><a href="#itemconfig">ItemConfig</a></code>                              |
+| **`total_config`** | <code><a href="#totalconfig">TotalConfig</a></code>                            |
+| **`modifier`**     | <code><a href="#modifierconfig">ModifierConfig</a></code>                      |
+
+
+#### HeaderConfig
+
+| Prop                  | Type                                    |
+| --------------------- | --------------------------------------- |
+| **`restaurant_name`** | <code>string</code>                     |
+| **`sub_header`**      | <code>string</code>                     |
+| **`prefix`**          | <code>string</code>                     |
+| **`gst_number`**      | <code>string</code>                     |
+| **`address`**         | <code>string</code>                     |
+| **`phone_number`**    | <code>string</code>                     |
+| **`size`**            | <code><a href="#tsize">TSize</a></code> |
+| **`bold`**            | <code>boolean</code>                    |
+
+
+#### KitchenItem
+
+| Prop              | Type                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **`qty`**         | <code>number</code>                                                                                                                  |
+| **`name`**        | <code>string</code>                                                                                                                  |
+| **`menu`**        | <code>{ _id?: string; name: string; price?: string; categoryName?: string; printer?: string; }</code>                                |
+| **`quantity`**    | <code>number</code>                                                                                                                  |
+| **`price`**       | <code>number</code>                                                                                                                  |
+| **`total_price`** | <code>number</code>                                                                                                                  |
+| **`modifiers`**   | <code><a href="#array">Array</a>&lt;{ modifier?: string; name: string; qty?: number; quantity?: number; price?: number; }&gt;</code> |
 
 
 #### Array
@@ -258,16 +291,58 @@ getPrinterStatus(options: { identifier: string; }) => Promise<{ status: string; 
 | **slice** | (start?: number \| undefined, end?: number \| undefined) =&gt; T[] |
 
 
-#### ReceiptFormatting
+#### FooterConfig
 
-| Prop             | Type                                                             |
-| ---------------- | ---------------------------------------------------------------- |
-| **`headerSize`** | <code>1 \| 2 \| 4 \| 3 \| 'normal' \| 'large' \| 'xlarge'</code> |
-| **`itemSize`**   | <code>1 \| 2 \| 4 \| 3 \| 'normal' \| 'large' \| 'xlarge'</code> |
-| **`itemBold`**   | <code>boolean</code>                                             |
-| **`totalSize`**  | <code>1 \| 2 \| 4 \| 3 \| 'normal' \| 'large' \| 'xlarge'</code> |
-| **`totalBold`**  | <code>boolean</code>                                             |
-| **`footerSize`** | <code>1 \| 2 \| 4 \| 3 \| 'normal' \| 'large' \| 'xlarge'</code> |
+| Prop              | Type                                    |
+| ----------------- | --------------------------------------- |
+| **`message`**     | <code>string</code>                     |
+| **`date_format`** | <code>string</code>                     |
+| **`time_format`** | <code>string</code>                     |
+| **`size`**        | <code><a href="#tsize">TSize</a></code> |
+| **`bold`**        | <code>boolean</code>                    |
+
+
+#### ItemConfig
+
+| Prop       | Type                                    |
+| ---------- | --------------------------------------- |
+| **`size`** | <code><a href="#tsize">TSize</a></code> |
+| **`bold`** | <code>boolean</code>                    |
+
+
+#### TotalConfig
+
+| Prop       | Type                                    |
+| ---------- | --------------------------------------- |
+| **`size`** | <code><a href="#tsize">TSize</a></code> |
+| **`bold`** | <code>boolean</code>                    |
+
+
+#### ModifierConfig
+
+| Prop         | Type                                                        |
+| ------------ | ----------------------------------------------------------- |
+| **`style`**  | <code><a href="#tmodifierstyle">TModifierStyle</a></code>   |
+| **`indent`** | <code><a href="#tmodifierindent">TModifierIndent</a></code> |
+| **`size`**   | <code><a href="#tsize">TSize</a></code>                     |
+
+
+### Type Aliases
+
+
+#### TSize
+
+<code>'1' | '2' | '3' | '4' | 'normal' | 'large' | 'xlarge'</code>
+
+
+#### TModifierStyle
+
+<code>'standard' | 'minimal' | 'bullet' | 'arrow' | 'detailed'</code>
+
+
+#### TModifierIndent
+
+<code>'small' | 'medium' | 'large'</code>
 
 </docgen-api>
 # seven365-zyprinter-sdk

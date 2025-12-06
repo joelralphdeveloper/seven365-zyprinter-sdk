@@ -9,22 +9,84 @@ export interface ZyPrinter {
   rssi?: number;
 }
 
-export interface ReceiptFormatting {
-  headerSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
-  itemSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
-  itemBold?: boolean;
-  totalSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
-  totalBold?: boolean;
-  footerSize?: 'normal' | 'large' | 'xlarge' | 1 | 2 | 3 | 4;
+export type TSize = '1' | '2' | '3' | '4' | 'normal' | 'large' | 'xlarge';
+export type TModifierStyle = 'standard' | 'minimal' | 'bullet' | 'arrow' | 'detailed';
+export type TModifierIndent = 'small' | 'medium' | 'large';
+
+export interface HeaderConfig {
+  restaurant_name?: string;
+  sub_header?: string;
+  prefix?: string;
+  gst_number?: string;
+  address?: string;
+  phone_number?: string;
+  size?: TSize;
+  bold?: boolean;
+}
+
+export interface ItemConfig {
+  size?: TSize;
+  bold?: boolean;
+}
+
+export interface ModifierConfig {
+  style?: TModifierStyle;
+  indent?: TModifierIndent;
+  size?: TSize;
+}
+
+export interface TotalConfig {
+  size?: TSize;
+  bold?: boolean;
+}
+
+export interface FooterConfig {
+  message?: string;
+  date_format?: string;
+  time_format?: string;
+  size?: TSize;
+  bold?: boolean;
+}
+
+export interface KitchenItem {
+  // Simple format (edit.vue)
+  qty?: number;
+  name?: string;
+  
+  // Complex format (zyprint-test.vue - from API/backend)
+  menu?: {
+    _id?: string;
+    name: string;
+    price?: string;
+    categoryName?: string;
+    printer?: string;
+  };
+  quantity?: number;
+  price?: number;
+  total_price?: number;
+  
+  // Shared properties
+  modifiers?: Array<{ 
+    modifier?: string;
+    name: string; 
+    qty?: number;
+    quantity?: number;
+    price?: number;
+  }>;
 }
 
 export interface ReceiptTemplate {
-  header?: string;
-  items?: Array<{ name: string; price: string }>;
-  kitchen?: Array<any>; // Support for kitchen data payload
+  header?: HeaderConfig;
+  kitchen?: KitchenItem[];
+  items?: Array<{ name: string; price: string }>; // Legacy support
   total?: string;
-  footer?: string;
-  formatting?: ReceiptFormatting;
+  order_type?: string;
+  table_name?: string;
+  order_number?: string;
+  footer?: FooterConfig;
+  item?: ItemConfig;
+  total_config?: TotalConfig;
+  modifier?: ModifierConfig;
 }
 
 export interface ZyprintPlugin {

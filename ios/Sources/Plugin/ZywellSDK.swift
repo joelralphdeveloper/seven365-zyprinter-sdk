@@ -93,10 +93,10 @@ import ExternalAccessory
         for accessory in connectedAccessories {
             // Check if the accessory might be a printer
             // Common printer protocol strings include manufacturer-specific identifiers
-            let isPotentialPrinter = accessory.protocolStrings.contains { protocol in
-                protocol.lowercased().contains("printer") ||
-                protocol.lowercased().contains("print") ||
-                protocol.lowercased().contains("pos")
+            let isPotentialPrinter = accessory.protocolStrings.contains { protocolString in
+                protocolString.lowercased().contains("printer") ||
+                protocolString.lowercased().contains("print") ||
+                protocolString.lowercased().contains("pos")
             }
             
             if isPotentialPrinter || !accessory.protocolStrings.isEmpty {
@@ -369,29 +369,266 @@ import ExternalAccessory
         // Center align (ESC a 1)
         printData.append(Data([0x1B, 0x61, 0x01]))
         
-        // Header
-        if let header = getString(template["header"]),
-           let headerData = (header + "\n\n").data(using: .utf8) {
+        // ========== HEADER SECTION (NEW STRUCTURE) ==========
+        if let header = template["header"] as? [String: Any] {
+            // Get header formatting
+            var sizeCode: UInt8 = 0x00
+            var headerBold = false
             
-            // Get header size from formatting options
-            var sizeCode: UInt8 = 0x00 // Default: normal
-            if let formatting = template["formatting"] as? [String: Any],
-               let headerSize = formatting["headerSize"] {
-                sizeCode = mapHeaderSizeToCode(headerSize)
+            if let size = header["size"] {
+                sizeCode = mapHeaderSizeToCode(size)
             }
-            print("ZywellSDK: Header size code: \(sizeCode)")
+            if let bold = header["bold"] as? Bool {
+                headerBold = bold
+            }
             
-            // Set font size (GS ! n)
-            printData.append(Data([0x1D, 0x21, sizeCode]))
+            // Apply bold if needed
+            if headerBold {
+                printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
+            }
             
-            printData.append(headerData)
+            // Set font size
+            if sizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, sizeCode]))
+            }
             
-            // Reset to normal size (GS ! 0)
-            printData.append(Data([0x1D, 0x21, 0x00]))
+            // Restaurant name
+            if let restaurantName = getString(header["restaurant_name"]),
+               let nameData = (restaurantName + "\n").data(using: .utf8) {
+                printData.append(nameData)
+            }
+            
+            // Sub header
+            if let subHeader = getString(header["sub_header"]),
+               !subHeader.isEmpty,
+               let subData = (subHeader + "\n").data(using: .utf8) {
+                printData.append(subData)
+            }
+            
+            // GST number
+            if let gstNumber = getString(header["gst_number"]),
+               !gstNumber.isEmpty,
+               let gstData = ("GST number: \(gstNumber)\n").data(using: .utf8) {
+                printData.append(gstData)
+            }
+            
+            // Reset header formatting
+            if sizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
+            if headerBold {
+                printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
+            }
         }
         
         // Left align (ESC a 0)
         printData.append(Data([0x1B, 0x61, 0x00]))
+        
+        // Separator
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
+        
+        // ========== ORDER INFO SECTION ==========
+        // Template type (e.g., "Kitchen Tickets")
+        if let orderType = getString(template["order_type"]),
+           let orderTypeData = (orderType + "\n").data(using: .utf8) {
+            printData.append(orderTypeData)
+        }
+        
+        // Table and order number with prefix
+        var orderInfoLine = ""
+        if let tableName = getString(template["table_name"]) {
+            orderInfoLine += tableName
+        }
+        if let orderNumber = getString(template["order_number"]) {
+            if !orderInfoLine.isEmpty {
+                orderInfoLine += " | "
+            }
+            orderInfoLine += orderNumber
+        }
+        if !orderInfoLine.isEmpty,
+           let orderInfoData = (orderInfoLine + "\n").data(using: .utf8) {
+            printData.append(orderInfoData)
+        }
+        
+        
+        // Separator for items section
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
+        
+        // ========== ITEMS SECTION (NEW STRUCTURE) ==========
+        if let kitchen = template["kitchen"] as? [[String: Any]] {
+            // Get item formatting from item object
+            var itemSizeCode: UInt8 = 0x00
+            var itemBold = false
+            
+            if let item = template["item"] as? [String: Any] {
+                if let size = item["size"] {
+                    itemSizeCode = mapHeaderSizeToCode(size)
+                }
+                if let bold = item["bold"] as? Bool {
+                    itemBold = bold
+                }
+            }
+            
+            // Apply item formatting
+            if itemBold {
+                printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
+            }
+            if itemSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, itemSizeCode])) // Set size
+            }
+            
+            // Get modifier formatting from modifier object
+            var modifierStyle = "bullet"  // default
+            var modifierSizeCode: UInt8 = 0x00
+            var modifierIndent = "  "  // default: medium
+            
+            if let modifier = template["modifier"] as? [String: Any] {
+                if let style = getString(modifier["style"]) {
+                    modifierStyle = style
+                }
+                if let size = modifier["size"] {
+                    modifierSizeCode = mapHeaderSizeToCode(size)
+                }
+                if let indent = getString(modifier["indent"]) {
+                    switch indent.lowercased() {
+                    case "small": modifierIndent = " "
+                    case "medium": modifierIndent = "  "
+                    case "large": modifierIndent = "    "
+                    default: modifierIndent = "  "
+                    }
+                }
+            }
+            
+            for item in kitchen {
+                var itemName = ""
+                var quantity = "1"
+                
+                // Get item name
+                if let name = getString(item["name"]) {
+                    itemName = name
+                } else if let menu = item["menu"] as? [String: Any],
+                   let name = getString(menu["name"]) {
+                    itemName = name
+                }
+                
+                // Get quantity
+                if let qty = item["qty"] {
+                    quantity = "x\(getString(qty) ?? "1")"
+                } else if let qty = item["quantity"] {
+                    quantity = "x\(getString(qty) ?? "1")"
+                }
+                
+                // Print main item line
+                let line = String(format: "%@ %@\n", itemName, quantity)
+                if let lineData = line.data(using: .utf8) {
+                    printData.append(lineData)
+                }
+                
+                // Print modifiers
+                if let modifiers = item["modifiers"] as? [[String: Any]] {
+                    // Apply modifier size if specified
+                    if modifierSizeCode != 0x00 {
+                        printData.append(Data([0x1D, 0x21, modifierSizeCode]))
+                    }
+                    
+                    for mod in modifiers {
+                        if let modName = getString(mod["name"]) {
+                            var prefix = ""
+                            
+                            // Determine prefix based on style
+                            switch modifierStyle.lowercased() {
+                            case "dash":
+                                prefix = "-"
+                            case "bullet":
+                                prefix = "•"
+                            case "arrow":
+                                prefix = "→"
+                            default:
+                                prefix = "•"
+                            }
+                            
+                            // Build modifier line
+                            let modLine = "\(modifierIndent)\(prefix) \(modName)\n"
+                            
+                            if let modData = modLine.data(using: .utf8) {
+                                printData.append(modData)
+                            }
+                        }
+                    }
+                    
+                    // Reset modifier size if it was changed
+                    if modifierSizeCode != 0x00 {
+                        printData.append(Data([0x1D, 0x21, 0x00]))
+                    }
+                }
+            }
+            
+            // Reset item formatting
+            if itemSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
+            if itemBold {
+                printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
+            }
+        }
+        
+        // Table number
+        if let tableNumber = getString(template["tableNumber"]),
+           let tableData = ("Table:\(tableNumber)\n").data(using: .utf8) {
+            printData.append(tableData)
+        }
+        
+        // Order number and type
+        if let orderNumber = getString(template["orderNumber"]) {
+            var orderLine = "ORDER NO.: \(orderNumber)\n"
+            if let orderType = getString(template["orderType"]) {
+                orderLine += "\(orderType)\n"
+            }
+            if let orderData = orderLine.data(using: .utf8) {
+                printData.append(orderData)
+            }
+        }
+        
+        // Served by
+        if let servedBy = getString(template["servedBy"]),
+           let servedData = ("Served By:\(servedBy)\n").data(using: .utf8) {
+            printData.append(servedData)
+        }
+        
+        // Date/Time
+        if let dateTime = template["dateTime"] {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MMM-dd HH:mm:ss"
+            
+            var dateString = ""
+            if let date = dateTime as? Date {
+                dateString = formatter.string(from: date)
+            } else if let dateStr = getString(dateTime) {
+                dateString = dateStr
+            }
+            
+            if !dateString.isEmpty,
+               let dateData = ("Date:\(dateString)\n").data(using: .utf8) {
+                printData.append(dateData)
+            }
+        }
+        
+        // Separator for items section
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
+        
+        // Items header (ITEM, QTY, AMT)
+        if let headerData = ("ITEM\t\t\tQTY\tAMT\n").data(using: .utf8) {
+            printData.append(headerData)
+        }
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
         
         // Items
         if let kitchen = template["kitchen"] as? [[String: Any]] {
@@ -416,6 +653,7 @@ import ExternalAccessory
             for item in kitchen {
                 var itemName = ""
                 var itemPrice = ""
+                var quantity = "1"
                 
                 // Get name from menu object
                 if let menu = item["menu"] as? [String: Any],
@@ -423,44 +661,114 @@ import ExternalAccessory
                     itemName = name
                 }
                 
-                // Add quantity
+                // Get quantity
                 if let qty = item["quantity"] {
-                    itemName += " x\(getString(qty) ?? "1")"
+                    quantity = "x\(getString(qty) ?? "1")"
                 }
                 
                 // Format price
                 if let price = item["total_price"] {
                     if let priceDouble = Double(getString(price) ?? "0") {
-                        itemPrice = String(format: "$%.2f", priceDouble)
+                        itemPrice = String(format: "%.1f", priceDouble)
                     } else {
-                        itemPrice = "$" + (getString(price) ?? "0.00")
+                        itemPrice = getString(price) ?? "0.00"
                     }
                 }
                 
-                // Print main item
-                let line = String(format: "%@\t%@\n", itemName, itemPrice)
+                // Print main item line
+                let line = String(format: "%@ %@\t%@\n", itemName, quantity, itemPrice)
                 if let lineData = line.data(using: .utf8) {
                     printData.append(lineData)
                 }
                 
                 // Print modifiers
                 if let modifiers = item["modifiers"] as? [[String: Any]] {
+                    // Get modifier formatting options
+                    var modifierStyle = "standard"  // default
+                    var modifierSizeCode: UInt8 = 0x00
+                    var modifierIndent = "  "  // default: 2 spaces
+                    
+                    if let formatting = template["formatting"] as? [String: Any] {
+                        if let style = getString(formatting["modifierStyle"]) {
+                            modifierStyle = style
+                        }
+                        if let size = formatting["modifierSize"] {
+                            modifierSizeCode = mapHeaderSizeToCode(size)
+                        }
+                        if let indent = getString(formatting["modifierIndent"]) {
+                            switch indent.lowercased() {
+                            case "small": modifierIndent = " "
+                            case "medium": modifierIndent = "  "
+                            case "large": modifierIndent = "    "
+                            default: modifierIndent = indent
+                            }
+                        }
+                    }
+                    
+                    // Apply modifier size if specified
+                    if modifierSizeCode != 0x00 {
+                        printData.append(Data([0x1D, 0x21, modifierSizeCode]))
+                    }
+                    
                     for mod in modifiers {
                         if let modName = getString(mod["name"]) {
-                            var modLine = "  + \(modName)"
+                            var modLine = ""
+                            var prefix = ""
                             
-                            // Only show price if > 0
-                            if let modPrice = mod["price"],
-                               let priceDouble = Double(getString(modPrice) ?? "0"),
-                               priceDouble > 0 {
-                                modLine += String(format: "\t$%.2f", priceDouble)
+                            // Determine prefix based on style
+                            switch modifierStyle.lowercased() {
+                            case "minimal":
+                                prefix = "-"
+                            case "bullet":
+                                prefix = "•"
+                            case "arrow":
+                                prefix = "→"
+                            case "detailed":
+                                prefix = "+"
+                            default: // "standard"
+                                prefix = "+"
                             }
+                            
+                            // Build modifier line based on style
+                            switch modifierStyle.lowercased() {
+                            case "minimal":
+                                modLine = "\(modifierIndent)\(prefix) \(modName)"
+                            case "bullet":
+                                modLine = "\(modifierIndent)\(prefix) \(modName)"
+                            case "arrow":
+                                modLine = "\(modifierIndent)\(prefix) \(modName)"
+                            case "detailed":
+                                // Show quantity if available
+                                var quantityStr = ""
+                                if let qty = mod["quantity"],
+                                   let qtyInt = qty as? Int, qtyInt > 1 {
+                                    quantityStr = " (x\(qtyInt))"
+                                }
+                                modLine = "\(modifierIndent)\(prefix) \(modName)\(quantityStr)"
+                            default: // "standard"
+                                modLine = "\(modifierIndent)\(prefix) \(modName)"
+                            }
+                            
+                            // Add price if > 0 (except for minimal style)
+                            if modifierStyle.lowercased() != "minimal" {
+                                if let modPrice = mod["price"],
+                                   let priceDouble = Double(getString(modPrice) ?? "0"),
+                                   priceDouble > 0 {
+                                    modLine += String(format: "\t$%.2f", priceDouble)
+                                }
+                            }
+                            
                             modLine += "\n"
                             
                             if let modData = modLine.data(using: .utf8) {
                                 printData.append(modData)
                             }
                         }
+                    }
+                    
+                    // Reset modifier size if it was changed
+                    if modifierSizeCode != 0x00 {
+                        printData.append(Data([0x1D, 0x21, 0x00]))
                     }
                 }
             }
@@ -512,20 +820,51 @@ import ExternalAccessory
             }
         }
         
-        // Total
-        if let total = getString(template["total"]),
-           let totalData = ("\nTotal: " + total + "\n").data(using: .utf8) {
-            // Get total formatting
+        // Separator
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
+        
+        // Subtotal, Discount, GST
+        if let subtotal = getString(template["subtotal"]) {
+            if let data = ("SUBTOTAL\t\t\t$\(subtotal)\n").data(using: .utf8) {
+                printData.append(data)
+            }
+        }
+        
+        if let discount = getString(template["discount"]) {
+            if let discountDouble = Double(discount), discountDouble > 0 {
+                if let data = ("SAFRA Members\t\t\t-$\(discount)\n").data(using: .utf8) {
+                    printData.append(data)
+                }
+            }
+        }
+        
+        if let gst = getString(template["gst"]) {
+            if let data = ("9% (Incl.) GST\t\t\t$\(gst)\n").data(using: .utf8) {
+                printData.append(data)
+            }
+        }
+        
+        // ========== TOTAL SECTION (NEW STRUCTURE) ==========
+        if let total = getString(template["total"]) {
+            // Separator
+            if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+                printData.append(separatorData)
+            }
+            
+            // Get total formatting from total_config object
             var totalSizeCode: UInt8 = 0x00
             var totalBold = false
-            if let formatting = template["formatting"] as? [String: Any] {
-                if let totalSize = formatting["totalSize"] {
-                    totalSizeCode = mapHeaderSizeToCode(totalSize)
+            
+            if let totalConfig = template["total_config"] as? [String: Any] {
+                if let size = totalConfig["size"] {
+                    totalSizeCode = mapHeaderSizeToCode(size)
                 }
-                totalBold = getBool(formatting["totalBold"])
+                if let bold = totalConfig["bold"] as? Bool {
+                    totalBold = bold
+                }
             }
-            print("ZywellSDK: Total size code: \(totalSizeCode)")
-            print("ZywellSDK: Total bold: \(totalBold)")
             
             // Apply total formatting
             if totalBold {
@@ -535,7 +874,9 @@ import ExternalAccessory
                 printData.append(Data([0x1D, 0x21, totalSizeCode])) // Set size
             }
             
-            printData.append(totalData)
+            if let totalData = ("TOTAL\t\t\t$\(total)\n").data(using: .utf8) {
+                printData.append(totalData)
+            }
             
             // Reset total formatting
             if totalSizeCode != 0x00 {
@@ -546,22 +887,53 @@ import ExternalAccessory
             }
         }
         
-        // Footer
-        if let footer = getString(template["footer"]),
-           let footerData = (footer + "\n").data(using: .utf8) {
+        // Separator
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
+        
+        // Payment method
+        if let paymentMethod = getString(template["paymentMethod"]),
+           let paymentData = ("PAYMENT BY:\(paymentMethod)\t\(getString(template["total"]) ?? "")\n").data(using: .utf8) {
+            printData.append(paymentData)
+        }
+        
+        // Separator
+        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            printData.append(separatorData)
+        }
+        
+        
+        // ========== FOOTER SECTION (NEW STRUCTURE) ==========
+        // Center align for footer
+        printData.append(Data([0x1B, 0x61, 0x01]))
+        
+        if let footer = template["footer"] as? [String: Any] {
             // Get footer formatting
             var footerSizeCode: UInt8 = 0x00
-            if let formatting = template["formatting"] as? [String: Any],
-               let footerSize = formatting["footerSize"] {
-                footerSizeCode = mapHeaderSizeToCode(footerSize)
+            var footerBold = false
+            
+            if let size = footer["size"] {
+                footerSizeCode = mapHeaderSizeToCode(size)
+            }
+            if let bold = footer["bold"] as? Bool {
+                footerBold = bold
             }
             
             // Apply footer formatting
+            if footerBold {
+                printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
+            }
             if footerSizeCode != 0x00 {
                 printData.append(Data([0x1D, 0x21, footerSizeCode])) // Set size
             }
             
-            printData.append(footerData)
+            // Footer message
+            if let message = getString(footer["message"]),
+               !message.isEmpty,
+               let messageData = (message + "\n").data(using: .utf8) {
+                printData.append(messageData)
+            }
             
             // Reset footer formatting
             if footerSizeCode != 0x00 {
