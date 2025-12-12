@@ -33,6 +33,7 @@ npx cap sync
 * [`disconnectFromPrinter(...)`](#disconnectfromprinter)
 * [`printText(...)`](#printtext)
 * [`printReceipt(...)`](#printreceipt)
+* [`printTestReceipt(...)`](#printtestreceipt)
 * [`getPrinterStatus(...)`](#getprinterstatus)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
@@ -155,6 +156,25 @@ printText(options: { text: string; identifier: string; }) => Promise<{ success: 
 ```typescript
 printReceipt(options: { template: ReceiptTemplate; identifier: string; }) => Promise<{ success: boolean; }>
 ```
+
+| Param         | Type                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| **`options`** | <code>{ template: <a href="#receipttemplate">ReceiptTemplate</a>; identifier: string; }</code> |
+
+**Returns:** <code>Promise&lt;{ success: boolean; }&gt;</code>
+
+--------------------
+
+
+### printTestReceipt(...)
+
+```typescript
+printTestReceipt(options: { template: ReceiptTemplate; identifier: string; }) => Promise<{ success: boolean; }>
+```
+
+Test print method - isolated from production printReceipt
+Use this for test prints to avoid affecting production printer setup
+Includes additional logging with [TEST] prefix
 
 | Param         | Type                                                                                           |
 | ------------- | ---------------------------------------------------------------------------------------------- |

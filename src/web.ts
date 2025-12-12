@@ -48,6 +48,11 @@ export class ZyprintWeb extends WebPlugin implements ZyprintPlugin {
     return { success: false };
   }
 
+  async printTestReceipt(_options: { template: Record<string, any>; identifier: string }): Promise<{ success: boolean }> {
+    console.warn('[TEST] Zyprint test receipt printing is not available on web platform');
+    return { success: false };
+  }
+
   async getPrinterStatus(_options: { identifier: string }): Promise<{ status: string; paperStatus: string; connected: boolean }> {
     console.warn('Zyprint status check is not available on web platform');
     return { status: 'unknown', paperStatus: 'unknown', connected: false };
