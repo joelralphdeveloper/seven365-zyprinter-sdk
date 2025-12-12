@@ -307,6 +307,36 @@ import ExternalAccessory
         sendDataToPrinter(data: data, identifier: identifier, completion: completion)
     }
     
+    // MARK: - Test Print Method (Isolated from Production)
+    
+    /**
+     * Dedicated test print method - isolates test functionality from production code
+     * This method wraps printReceipt with additional logging and test-specific handling
+     * Use this for test prints to avoid affecting production printer setup
+     */
+    @objc public func printTestReceipt(template: [String: Any], identifier: String, completion: @escaping (Bool, String?) -> Void) {
+        print("ZywellSDK [TEST]: Test print request received")
+        print("ZywellSDK [TEST]: Template: \(template)")
+        print("ZywellSDK [TEST]: Printer ID: \(identifier)")
+        
+        guard let data = formatReceiptForPrinter(template: template) else {
+            print("ZywellSDK [TEST]: Failed to format test receipt")
+            completion(false, "Failed to format test receipt")
+            return
+        }
+        
+        print("ZywellSDK [TEST]: Sending test print data to printer...")
+        sendDataToPrinter(data: data, identifier: identifier) { success, error in
+            if success {
+                print("ZywellSDK [TEST]: ✅ Test print completed successfully")
+            } else {
+                print("ZywellSDK [TEST]: ❌ Test print failed: \(error ?? "unknown error")")
+            }
+            completion(success, error)
+        }
+    }
+    
+
     private func sendDataToPrinter(data: Data, identifier: String, completion: @escaping (Bool, String?) -> Void) {
         // Check if WiFi connection
         if let wifiManager = wifiManagers[identifier] {

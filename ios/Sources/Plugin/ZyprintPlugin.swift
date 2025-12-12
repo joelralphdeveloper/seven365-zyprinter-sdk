@@ -22,6 +22,7 @@ public class ZyprintPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "disconnectFromPrinter", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "printText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "printReceipt", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "printTestReceipt", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPrinterStatus", returnType: CAPPluginReturnPromise)
     ]
     
@@ -143,6 +144,24 @@ public class ZyprintPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         
         implementation.printReceipt(template: template, identifier: identifier) { success, error in
+            if let error = error {
+                call.reject(error)
+            } else {
+                call.resolve([
+                    "success": success
+                ])
+            }
+        }
+    }
+    
+    @objc func printTestReceipt(_ call: CAPPluginCall) {
+        guard let template = call.getObject("template"),
+              let identifier = call.getString("identifier") else {
+            call.reject("Missing required parameters")
+            return
+        }
+        
+        implementation.printTestReceipt(template: template, identifier: identifier) { success, error in
             if let error = error {
                 call.reject(error)
             } else {
