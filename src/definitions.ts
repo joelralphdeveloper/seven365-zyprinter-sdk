@@ -106,6 +106,13 @@ export interface ZyprintPlugin {
   printText(options: { text: string; identifier: string }): Promise<{ success: boolean }>;
   printReceipt(options: { template: ReceiptTemplate; identifier: string }): Promise<{ success: boolean }>;
   
+  /**
+   * Test print method - isolated from production printReceipt
+   * Use this for test prints to avoid affecting production printer setup
+   * Includes additional logging with [TEST] prefix
+   */
+  printTestReceipt(options: { template: ReceiptTemplate; identifier: string }): Promise<{ success: boolean }>;
+  
   // Printer Status
   getPrinterStatus(options: { identifier: string }): Promise<{ status: string; paperStatus: string; connected: boolean }>;
 }
