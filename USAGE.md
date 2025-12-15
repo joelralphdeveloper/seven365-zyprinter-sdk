@@ -410,8 +410,8 @@ try {
 ## Platform Support
 
 - ✅ iOS (Bluetooth, WiFi)
-- ✅ Android (Bluetooth, WiFi)
 - ⚠️ Web (Limited - returns mock responses with warnings)
+
 
 ## Printer Communication Protocols
 
