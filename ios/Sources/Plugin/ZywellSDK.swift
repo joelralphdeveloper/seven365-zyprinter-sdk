@@ -13,6 +13,15 @@ import ExternalAccessory
 
 @objc public class ZywellSDK: NSObject {
     
+    // MARK: - Printer Configuration
+    
+    /// Default printer width in characters (for 80mm thermal paper)
+    /// Common widths: 32 chars (58mm paper), 48 chars (80mm paper)
+    private let printerWidth: Int = 48
+    
+    /// Character separator character
+    private let separatorChar: String = "-"
+    
     private var bleManager: POSBLEManager?
     private var wifiManagers: [String: POSWIFIManager] = [:]
     private var discoveredPeripherals: [CBPeripheral] = []
@@ -454,19 +463,39 @@ import ExternalAccessory
         // Left align (ESC a 0)
         printData.append(Data([0x1B, 0x61, 0x00]))
         
-        // Separator
-        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+        // Separator (normal font size)
+        if let separatorData = generateSeparator().data(using: .utf8) {
             printData.append(separatorData)
         }
         
         // ========== ORDER INFO SECTION ==========
-        // Template type (e.g., "Kitchen Tickets")
+        // Template type (e.g., "Kitchen Tickets") - normal size
         if let orderType = getString(template["order_type"]),
            let orderTypeData = (orderType + "\n").data(using: .utf8) {
             printData.append(orderTypeData)
         }
         
-        // Table and order number with prefix
+        // Table and order number - Read formatting from order_info or use defaults
+        var orderInfoSizeCode: UInt8 = 0x22  // Default to 3x (xlarge)
+        var orderInfoBold = true  // Default to bold
+        
+        if let orderInfo = template["order_info"] as? [String: Any] {
+            if let size = orderInfo["size"] {
+                orderInfoSizeCode = mapHeaderSizeToCode(size)
+            }
+            if let bold = orderInfo["bold"] as? Bool {
+                orderInfoBold = bold
+            }
+        }
+        
+        // Apply order info formatting
+        if orderInfoBold {
+            printData.append(Data([0x1B, 0x45, 0x01]))  // Bold on
+        }
+        if orderInfoSizeCode != 0x00 {
+            printData.append(Data([0x1D, 0x21, orderInfoSizeCode]))  // Set size from config
+        }
+        
         var orderInfoLine = ""
         if let tableName = getString(template["table_name"]) {
             orderInfoLine += tableName
@@ -482,9 +511,18 @@ import ExternalAccessory
             printData.append(orderInfoData)
         }
         
+        // Reset formatting back to normal
+        if orderInfoSizeCode != 0x00 {
+            printData.append(Data([0x1D, 0x21, 0x00]))  // Normal size
+        }
+        if orderInfoBold {
+            printData.append(Data([0x1B, 0x45, 0x00]))  // Bold off
+        }
         
-        // Separator for items section
-        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+        
+        
+        // Separator for items section (normal font size)
+        if let separatorData = generateSeparator().data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -608,8 +646,8 @@ import ExternalAccessory
         }
         
         // ========== TOTAL SECTION ==========
-        // Separator before total
-        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+        // Separator before total (normal font size)
+        if let separatorData = generateSeparator().data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -636,8 +674,8 @@ import ExternalAccessory
         
         // ========== TOTAL SECTION (NEW STRUCTURE) ==========
         if let total = getString(template["total"]) {
-            // Separator
-            if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+            // Separator (may need to account for total font size)
+            if let separatorData = generateSeparator().data(using: .utf8) {
                 printData.append(separatorData)
             }
             
@@ -675,8 +713,8 @@ import ExternalAccessory
             }
         }
         
-        // Separator
-        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+        // Separator (normal font size)
+        if let separatorData = generateSeparator().data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -686,8 +724,8 @@ import ExternalAccessory
             printData.append(paymentData)
         }
         
-        // Separator
-        if let separatorData = ("--------------------------------\n").data(using: .utf8) {
+        // Separator (normal font size)
+        if let separatorData = generateSeparator().data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -741,32 +779,40 @@ import ExternalAccessory
     // MARK: - Helper Functions
     
     private func mapHeaderSizeToCode(_ size: Any) -> UInt8 {
+        var resultCode: UInt8 = 0x00
+        
         if let sizeInt = size as? Int {
             switch sizeInt {
-            case 1: return 0x00
-            case 2: return 0x11
-            case 3: return 0x22
-            case 4: return 0x33
-            default: return 0x00
+            case 1: resultCode = 0x00
+            case 2: resultCode = 0x11
+            case 3: resultCode = 0x22
+            case 4: resultCode = 0x33
+            default: resultCode = 0x00
             }
+            print("ZywellSDK: Mapped size Int(\(sizeInt)) → 0x\(String(format: "%02X", resultCode))")
         } else if let sizeStr = size as? String {
             switch sizeStr.lowercased() {
-            case "normal", "1": return 0x00
-            case "large", "2": return 0x11
-            case "xlarge", "3": return 0x22
-            case "4": return 0x33
-            default: return 0x00
+            case "normal", "1": resultCode = 0x00
+            case "large", "2": resultCode = 0x11
+            case "xlarge", "3": resultCode = 0x22
+            case "4": resultCode = 0x33
+            default: resultCode = 0x00
             }
+            print("ZywellSDK: Mapped size String(\"\(sizeStr)\") → 0x\(String(format: "%02X", resultCode))")
         } else if let sizeNum = size as? NSNumber {
              switch sizeNum.intValue {
-             case 1: return 0x00
-             case 2: return 0x11
-             case 3: return 0x22
-             case 4: return 0x33
-             default: return 0x00
+             case 1: resultCode = 0x00
+             case 2: resultCode = 0x11
+             case 3: resultCode = 0x22
+             case 4: resultCode = 0x33
+             default: resultCode = 0x00
              }
+             print("ZywellSDK: Mapped size NSNumber(\(sizeNum.intValue)) → 0x\(String(format: "%02X", resultCode))")
+        } else {
+            print("ZywellSDK: Unknown size type: \(type(of: size)), defaulting to 0x00")
         }
-        return 0x00
+        
+        return resultCode
     }
     
     private func getBool(_ value: Any?) -> Bool {
@@ -786,6 +832,34 @@ import ExternalAccessory
         if let strVal = value as? String { return strVal }
         if let numVal = value as? NSNumber { return numVal.stringValue }
         return String(describing: value)
+    }
+    
+    /**
+     * Generates a separator line based on current printer width and font magnification
+     * - Parameter sizeCode: The current font size code (0x00, 0x11, 0x22, 0x33)
+     * - Returns: A separator string with appropriate width
+     *
+     * Font magnification affects character width:
+     * - 0x00 (normal): 1x width
+     * - 0x11 (2x2): 2x width (half as many characters fit)
+     * - 0x22 (3x3): 3x width (one-third as many characters fit)
+     * - 0x33 (4x4): 4x width (one-quarter as many characters fit)
+     */
+    private func generateSeparator(forSizeCode sizeCode: UInt8 = 0x00) -> String {
+        // Calculate width divisor based on font magnification
+        let widthMultiplier: Int
+        switch sizeCode {
+        case 0x11: widthMultiplier = 2  // 2x width
+        case 0x22: widthMultiplier = 3  // 3x width
+        case 0x33: widthMultiplier = 4  // 4x width
+        default: widthMultiplier = 1     // Normal width
+        }
+        
+        // Calculate actual character count that fits on the line
+        let effectiveWidth = printerWidth / widthMultiplier
+        
+        // Generate separator string
+        return String(repeating: separatorChar, count: effectiveWidth) + "\n"
     }
     
     // MARK: - Callback Storage
