@@ -1,6 +1,6 @@
 {
   "name": "seven365-zyprinter",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Capacitor plugin for Zywell/Zyprint thermal printer integration with Bluetooth and WiFi support",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
