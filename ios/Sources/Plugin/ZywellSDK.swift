@@ -475,10 +475,41 @@ import ExternalAccessory
         // Center align for order info (ESC a 1)
         printData.append(Data([0x1B, 0x61, 0x01]))
         
-        // Template type (e.g., "Kitchen Tickets") - normal size
-        if let orderType = getString(template["order_type"]),
-           let orderTypeData = (orderType + "\n").data(using: .utf8) {
-            printData.append(orderTypeData)
+        // Template type (e.g., "Kitchen Tickets") - customizable formatting
+        if let orderType = getString(template["order_type"]) {
+            // Get order_type formatting from order_type_config object
+            var orderTypeSizeCode: UInt8 = 0x00  // Default to normal size
+            var orderTypeBold = false  // Default to not bold
+            
+            if let orderTypeConfig = template["order_type_config"] as? [String: Any] {
+                if let size = orderTypeConfig["size"] {
+                    orderTypeSizeCode = mapHeaderSizeToCode(size)
+                }
+                if let bold = orderTypeConfig["bold"] as? Bool {
+                    orderTypeBold = bold
+                }
+            }
+            
+            // Apply order_type formatting
+            if orderTypeBold {
+                printData.append(Data([0x1B, 0x45, 0x01]))  // Bold on
+            }
+            if orderTypeSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, orderTypeSizeCode]))  // Set size
+            }
+            
+            // Print order type
+            if let orderTypeData = (orderType + "\n").data(using: .utf8) {
+                printData.append(orderTypeData)
+            }
+            
+            // Reset order_type formatting
+            if orderTypeSizeCode != 0x00 {
+                printData.append(Data([0x1D, 0x21, 0x00]))  // Normal size
+            }
+            if orderTypeBold {
+                printData.append(Data([0x1B, 0x45, 0x00]))  // Bold off
+            }
         }
         
         // Table and order number - Read formatting from order_info or use defaults
@@ -552,14 +583,14 @@ import ExternalAccessory
             if itemBold {
                 printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
             }
-            if itemSizeCode != 0x00 {
-                printData.append(Data([0x1D, 0x21, itemSizeCode])) // Set size
-            }
+            // Always send size command to ensure items are at configured size
+            printData.append(Data([0x1D, 0x21, itemSizeCode])) // Set size (even if 0x00 for normal)
             
             // Get modifier formatting from modifier object
             var modifierStyle = "bullet"  // default
             var modifierSizeCode: UInt8 = 0x00
             var modifierIndent = "  "  // default: medium
+            var modifierBold = false  // NEW: bold support for modifiers
             
             if let modifier = template["modifier"] as? [String: Any] {
                 if let style = getString(modifier["style"]) {
@@ -575,6 +606,9 @@ import ExternalAccessory
                     case "large": modifierIndent = "    "
                     default: modifierIndent = "  "
                     }
+                }
+                if let bold = modifier["bold"] as? Bool {
+                    modifierBold = bold
                 }
             }
             
@@ -605,9 +639,12 @@ import ExternalAccessory
                 
                 // Print modifiers
                 if let modifiers = item["modifiers"] as? [[String: Any]] {
-                    // Apply modifier size if specified
+                    // Apply modifier formatting (size and bold)
                     if modifierSizeCode != 0x00 {
                         printData.append(Data([0x1D, 0x21, modifierSizeCode]))
+                    }
+                    if modifierBold {
+                        printData.append(Data([0x1B, 0x45, 0x01])) // Bold on
                     }
                     
                     for mod in modifiers {
@@ -615,15 +652,17 @@ import ExternalAccessory
                             var prefix = ""
                             
                             // Determine prefix based on style
+                            // Note: Using ASCII-compatible characters only
+                            // Unicode characters like • and → display as garbled text on thermal printers
                             switch modifierStyle.lowercased() {
                             case "dash":
                                 prefix = "-"
                             case "bullet":
-                                prefix = "•"
+                                prefix = "*"  // ASCII asterisk instead of Unicode bullet
                             case "arrow":
-                                prefix = "→"
+                                prefix = ">"  // ASCII greater-than instead of Unicode arrow
                             default:
-                                prefix = "•"
+                                prefix = "-"  // Default to dash for best compatibility
                             }
                             
                             // Build modifier line
@@ -635,17 +674,18 @@ import ExternalAccessory
                         }
                     }
                     
-                    // Reset modifier size if it was changed
+                    // Reset modifier formatting (size and bold)
+                    if modifierBold {
+                        printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
+                    }
                     if modifierSizeCode != 0x00 {
-                        printData.append(Data([0x1D, 0x21, 0x00]))
+                        printData.append(Data([0x1D, 0x21, itemSizeCode])) // Reset to item size, not 0x00
                     }
                 }
             }
             
             // Reset item formatting
-            if itemSizeCode != 0x00 {
-                printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
-            }
+            printData.append(Data([0x1D, 0x21, 0x00])) // Always reset to normal size
             if itemBold {
                 printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
             }
@@ -720,18 +760,19 @@ import ExternalAccessory
             }
         }
         
-        // Separator (normal font size)
-        if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
-            printData.append(separatorData)
+        // Payment method (with separator only if payment method exists)
+        if let paymentMethod = getString(template["paymentMethod"]) {
+            // Separator before payment
+            if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
+                printData.append(separatorData)
+            }
+            
+            if let paymentData = ("PAYMENT BY:\(paymentMethod)\t\(getString(template["total"]) ?? "")\n").data(using: .utf8) {
+                printData.append(paymentData)
+            }
         }
         
-        // Payment method
-        if let paymentMethod = getString(template["paymentMethod"]),
-           let paymentData = ("PAYMENT BY:\(paymentMethod)\t\(getString(template["total"]) ?? "")\n").data(using: .utf8) {
-            printData.append(paymentData)
-        }
-        
-        // Separator (normal font size)
+        // Single separator before footer
         if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
             printData.append(separatorData)
         }
