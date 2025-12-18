@@ -19,8 +19,8 @@ import ExternalAccessory
     /// Common widths: 32 chars (58mm paper), 48 chars (80mm paper)
     private let printerWidth: Int = 48
     
-    /// Character separator character
-    private let separatorChar: String = "-"
+    /// Default separator character (can be overridden per-template)
+    private let defaultSeparatorChar: String = "-"
     
     private var bleManager: POSBLEManager?
     private var wifiManagers: [String: POSWIFIManager] = [:]
@@ -402,6 +402,9 @@ import ExternalAccessory
     private func formatReceiptForPrinter(template: [String: Any]) -> Data? {
         var printData = Data()
         
+        // Get separator character from template (dynamic) or use default
+        let separatorChar = getString(template["separator"]) ?? defaultSeparatorChar
+        
         // Initialize printer
         printData.append(Data([0x1B, 0x40]))
         
@@ -460,15 +463,18 @@ import ExternalAccessory
             }
         }
         
-        // Left align (ESC a 0)
+        // Left align for separator (ESC a 0)
         printData.append(Data([0x1B, 0x61, 0x00]))
         
         // Separator (normal font size)
-        if let separatorData = generateSeparator().data(using: .utf8) {
+        if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
             printData.append(separatorData)
         }
         
         // ========== ORDER INFO SECTION ==========
+        // Center align for order info (ESC a 1)
+        printData.append(Data([0x1B, 0x61, 0x01]))
+        
         // Template type (e.g., "Kitchen Tickets") - normal size
         if let orderType = getString(template["order_type"]),
            let orderTypeData = (orderType + "\n").data(using: .utf8) {
@@ -476,7 +482,7 @@ import ExternalAccessory
         }
         
         // Table and order number - Read formatting from order_info or use defaults
-        var orderInfoSizeCode: UInt8 = 0x22  // Default to 3x (xlarge)
+        var orderInfoSizeCode: UInt8 = 0x11  // Default to 2x (large)
         var orderInfoBold = true  // Default to bold
         
         if let orderInfo = template["order_info"] as? [String: Any] {
@@ -519,17 +525,18 @@ import ExternalAccessory
             printData.append(Data([0x1B, 0x45, 0x00]))  // Bold off
         }
         
-        
+        // Left align for items section (ESC a 0)
+        printData.append(Data([0x1B, 0x61, 0x00]))
         
         // Separator for items section (normal font size)
-        if let separatorData = generateSeparator().data(using: .utf8) {
+        if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
             printData.append(separatorData)
         }
         
         // ========== ITEMS SECTION (NEW STRUCTURE) ==========
         if let kitchen = template["kitchen"] as? [[String: Any]] {
             // Get item formatting from item object
-            var itemSizeCode: UInt8 = 0x00
+            var itemSizeCode: UInt8 = 0x11  // Default to 2x (large) for better readability
             var itemBold = false
             
             if let item = template["item"] as? [String: Any] {
@@ -647,7 +654,7 @@ import ExternalAccessory
         
         // ========== TOTAL SECTION ==========
         // Separator before total (normal font size)
-        if let separatorData = generateSeparator().data(using: .utf8) {
+        if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -675,7 +682,7 @@ import ExternalAccessory
         // ========== TOTAL SECTION (NEW STRUCTURE) ==========
         if let total = getString(template["total"]) {
             // Separator (may need to account for total font size)
-            if let separatorData = generateSeparator().data(using: .utf8) {
+            if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
                 printData.append(separatorData)
             }
             
@@ -714,7 +721,7 @@ import ExternalAccessory
         }
         
         // Separator (normal font size)
-        if let separatorData = generateSeparator().data(using: .utf8) {
+        if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -725,7 +732,7 @@ import ExternalAccessory
         }
         
         // Separator (normal font size)
-        if let separatorData = generateSeparator().data(using: .utf8) {
+        if let separatorData = generateSeparator(withChar: separatorChar).data(using: .utf8) {
             printData.append(separatorData)
         }
         
@@ -761,9 +768,20 @@ import ExternalAccessory
                 printData.append(messageData)
             }
             
-            // Reset footer formatting
+            // Reset footer formatting before timestamp
             if footerSizeCode != 0x00 {
                 printData.append(Data([0x1D, 0x21, 0x00])) // Normal size
+            }
+            if footerBold {
+                printData.append(Data([0x1B, 0x45, 0x00])) // Bold off
+            }
+            
+            // Print timestamp
+            let dateFormat = getString(footer["date_format"]) ?? "YYYY-MM-DD"
+            let timeFormat = getString(footer["time_format"]) ?? "24H"
+            let timestamp = formatTimestamp(dateFormat: dateFormat, timeFormat: timeFormat)
+            if let timestampData = (timestamp + "\n").data(using: .utf8) {
+                printData.append(timestampData)
             }
         }
         
@@ -835,6 +853,48 @@ import ExternalAccessory
     }
     
     /**
+     * Formats the current timestamp based on date and time format preferences
+     * - Parameters:
+     *   - dateFormat: Format string like "YYYY-MM-DD", "DD-MM-YYYY", "MM-DD-YYYY"
+     *   - timeFormat: "12H" or "24H"
+     * - Returns: Formatted timestamp string
+     */
+    private func formatTimestamp(dateFormat: String, timeFormat: String) -> String {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        let year = calendar.component(.year, from: now)
+        let month = calendar.component(.month, from: now)
+        let day = calendar.component(.day, from: now)
+        let hour = calendar.component(.hour, from: now)
+        let minute = calendar.component(.minute, from: now)
+        let second = calendar.component(.second, from: now)
+        
+        // Format date
+        var formattedDate: String
+        switch dateFormat {
+        case "DD-MM-YYYY", "DD/MM/YYYY":
+            formattedDate = String(format: "%02d-%02d-%04d", day, month, year)
+        case "MM-DD-YYYY", "MM/DD/YYYY":
+            formattedDate = String(format: "%02d-%02d-%04d", month, day, year)
+        default: // "YYYY-MM-DD"
+            formattedDate = String(format: "%04d-%02d-%02d", year, month, day)
+        }
+        
+        // Format time
+        var formattedTime: String
+        if timeFormat == "12H" {
+            let hour12 = hour % 12 == 0 ? 12 : hour % 12
+            let ampm = hour >= 12 ? "PM" : "AM"
+            formattedTime = String(format: "%d:%02d:%02d %@", hour12, minute, second, ampm)
+        } else { // 24H
+            formattedTime = String(format: "%02d:%02d:%02d", hour, minute, second)
+        }
+        
+        return "\(formattedDate) \(formattedTime)"
+    }
+    
+    /**
      * Generates a separator line based on current printer width and font magnification
      * - Parameter sizeCode: The current font size code (0x00, 0x11, 0x22, 0x33)
      * - Returns: A separator string with appropriate width
@@ -845,7 +905,7 @@ import ExternalAccessory
      * - 0x22 (3x3): 3x width (one-third as many characters fit)
      * - 0x33 (4x4): 4x width (one-quarter as many characters fit)
      */
-    private func generateSeparator(forSizeCode sizeCode: UInt8 = 0x00) -> String {
+    private func generateSeparator(forSizeCode sizeCode: UInt8 = 0x00, withChar separatorChar: String? = nil) -> String {
         // Calculate width divisor based on font magnification
         let widthMultiplier: Int
         switch sizeCode {
@@ -858,8 +918,11 @@ import ExternalAccessory
         // Calculate actual character count that fits on the line
         let effectiveWidth = printerWidth / widthMultiplier
         
+        // Use provided separator character or fall back to default
+        let charToUse = separatorChar ?? defaultSeparatorChar
+        
         // Generate separator string
-        return String(repeating: separatorChar, count: effectiveWidth) + "\n"
+        return String(repeating: charToUse, count: effectiveWidth) + "\n"
     }
     
     // MARK: - Callback Storage
